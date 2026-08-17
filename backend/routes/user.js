@@ -25,15 +25,8 @@ const protect = async (req, res, next) => {
   }
 };
 
-// Multer storage setup for profile images
-const storage = multer.diskStorage({
-  destination(req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename(req, file, cb) {
-    cb(null, `profile-${req.user.id}-${Date.now()}${path.extname(file.originalname)}`);
-  }
-});
+// Multer storage setup for serverless base64 (memory storage)
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // GET /api/user/me
@@ -51,8 +44,9 @@ router.put('/settings', protect, upload.single('profileImage'), async (req, res)
     }
     
     if (req.file) {
-      // Save the relative path so the frontend can request it via static serving
-      req.user.profileImage = `/uploads/${req.file.filename}`;
+      // Convert buffer to base64 string
+      const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+      req.user.profileImage = base64Image;
     }
     
     await req.user.save();

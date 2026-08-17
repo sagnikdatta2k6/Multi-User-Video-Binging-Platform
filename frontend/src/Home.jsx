@@ -36,7 +36,7 @@ const Home = () => {
       <div style={{ position: 'absolute', top: '2rem', right: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <span style={{ fontWeight: 600 }}>Hey, {user?.username}!</span>
         {user?.profileImage ? (
-          <img src={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}${user.profileImage}`} alt="Profile" style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--border-color)' }} />
+          <img src={user.profileImage.startsWith('data:image') ? user.profileImage : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}${user.profileImage}`} alt="Profile" style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--border-color)' }} />
         ) : (
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--accent-pink)', border: '2px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
             {user?.username?.charAt(0).toUpperCase()}

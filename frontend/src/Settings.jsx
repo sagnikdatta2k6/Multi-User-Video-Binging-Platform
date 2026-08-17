@@ -9,7 +9,13 @@ const Settings = () => {
   const [username, setUsername] = useState(user?.username || '');
   const [file, setFile] = useState(null);
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-  const [preview, setPreview] = useState(user?.profileImage ? `${backendUrl}${user.profileImage}` : null);
+  
+  const getInitialPreview = () => {
+    if (!user?.profileImage) return null;
+    return user.profileImage.startsWith('data:image') ? user.profileImage : `${backendUrl}${user.profileImage}`;
+  };
+  
+  const [preview, setPreview] = useState(getInitialPreview());
   const [status, setStatus] = useState('');
   const navigate = useNavigate();
 

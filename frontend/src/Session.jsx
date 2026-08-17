@@ -1,19 +1,19 @@
 import { useEffect, useState, useRef, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import YouTube from 'react-youtube';
-import { io } from 'socket.io-client';
+import Pusher from 'pusher-js';
 import { motion } from 'framer-motion';
 import { Users, Copy, Music, LogOut, Search, Send, MessageCircle } from 'lucide-react';
 import { AuthContext } from './context/AuthContext';
 
-const SOCKET_SERVER_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 const Session = () => {
   const { roomId } = useParams();
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [socket, setSocket] = useState(null);
+  const [channel, setChannel] = useState(null);
   const [users, setUsers] = useState([]);
   const [videoId, setVideoId] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -23,39 +23,83 @@ const Session = () => {
   const playerRef = useRef(null);
   const isSyncingRef = useRef(false);
   const chatBottomRef = useRef(null);
+  
+  const usersRef = useRef([]);
 
   useEffect(() => {
     if (!user) return;
+    
+    // Make sure we have Pusher config
+    const pusherKey = import.meta.env.VITE_PUSHER_KEY || 'app-key';
+    const pusherCluster = import.meta.env.VITE_PUSHER_CLUSTER || 'us2';
 
-    const newSocket = io(SOCKET_SERVER_URL);
-    setSocket(newSocket);
-
-    newSocket.emit('join_room', { 
-      roomId, 
-      username: user.username,
-      profileImage: user.profileImage 
+    const pusher = new Pusher(pusherKey, {
+      cluster: pusherCluster,
+      authEndpoint: `${BACKEND_URL}/api/pusher/auth`,
     });
 
-    newSocket.on('room_state', (state) => {
+    const roomChannel = pusher.subscribe(`private-room-${roomId}`);
+    setChannel(roomChannel);
+
+    // Initial join
+    roomChannel.bind('pusher:subscription_succeeded', () => {
+      const myUser = { 
+        socketId: pusher.connection.socket_id, 
+        username: user.username, 
+        profileImage: user.profileImage 
+      };
+      setUsers([myUser]);
+      usersRef.current = [myUser];
+      
+      // Tell others we joined
+      roomChannel.trigger('client-user-joined', myUser);
+    });
+
+    // When another user joins
+    roomChannel.bind('client-user-joined', (newUser) => {
+      setUsers(prev => {
+        const newUsers = [...prev.filter(u => u.socketId !== newUser.socketId), newUser];
+        usersRef.current = newUsers;
+        return newUsers;
+      });
+      
+      // We send them our state so they know the current video and our presence
+      if (playerRef.current) {
+        const player = playerRef.current.getInternalPlayer();
+        if (player && player.getPlayerState) {
+           player.getPlayerState().then(state => {
+             player.getCurrentTime().then(timestamp => {
+               roomChannel.trigger('client-room-state', {
+                 users: usersRef.current,
+                 playbackState: { videoId, isPlaying: state === 1, timestamp }
+               });
+             });
+           });
+        }
+      } else {
+        roomChannel.trigger('client-room-state', {
+          users: usersRef.current,
+          playbackState: { videoId, isPlaying: false, timestamp: 0 }
+        });
+      }
+    });
+
+    // When someone sends us the room state (we just joined)
+    roomChannel.bind('client-room-state', (state) => {
       setUsers(state.users);
-      if (state.playbackState.videoId) {
+      usersRef.current = state.users;
+      if (state.playbackState.videoId && !videoId) {
         setVideoId(state.playbackState.videoId);
       }
     });
 
-    newSocket.on('user_joined', (newUser) => {
-      setUsers((prev) => [...prev, newUser]);
-    });
-
-    newSocket.on('user_left', (leftUser) => {
-      setUsers((prev) => prev.filter((u) => u.socketId !== leftUser.socketId));
-    });
-
-    newSocket.on('new_message', (message) => {
+    // Chat message received
+    roomChannel.bind('client-new-message', (message) => {
       setMessages((prev) => [...prev, message]);
     });
 
-    newSocket.on('playback_synced', (state) => {
+    // Playback sync received
+    roomChannel.bind('client-playback-synced', (state) => {
       if (!playerRef.current) return;
       const player = playerRef.current.getInternalPlayer();
       if (!player) return;
@@ -66,35 +110,36 @@ const Session = () => {
         setVideoId(state.videoId);
       }
 
-      const currentTime = player.getCurrentTime() || 0;
-      const timeDiff = Math.abs(currentTime - state.timestamp);
+      player.getCurrentTime().then(currentTime => {
+        const timeDiff = Math.abs((currentTime || 0) - state.timestamp);
+        if (timeDiff > 2) {
+          player.seekTo(state.timestamp);
+        }
 
-      if (timeDiff > 2) {
-        player.seekTo(state.timestamp);
-      }
+        if (state.isPlaying) {
+          player.playVideo();
+        } else {
+          player.pauseVideo();
+        }
 
-      if (state.isPlaying) {
-        player.playVideo();
-      } else {
-        player.pauseVideo();
-      }
-
-      setTimeout(() => {
-        isSyncingRef.current = false;
-      }, 500);
+        setTimeout(() => {
+          isSyncingRef.current = false;
+        }, 500);
+      });
     });
 
     return () => {
-      newSocket.disconnect();
+      pusher.unsubscribe(`private-room-${roomId}`);
+      pusher.disconnect();
     };
-  }, [roomId, user]);
+  }, [roomId, user]); // Note: depending on videoId here causes re-subscriptions, so we use refs/state carefully
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const emitSync = async () => {
-    if (isSyncingRef.current || !socket || !playerRef.current) return;
+    if (isSyncingRef.current || !channel || !playerRef.current) return;
     const player = playerRef.current.getInternalPlayer();
     if (!player) return;
 
@@ -102,9 +147,8 @@ const Session = () => {
     const isPlaying = state === 1;
     const timestamp = await player.getCurrentTime();
 
-    socket.emit('sync_playback', {
-      roomId,
-      state: { videoId, isPlaying, timestamp }
+    channel.trigger('client-playback-synced', {
+      videoId, isPlaying, timestamp
     });
   };
 
@@ -135,25 +179,42 @@ const Session = () => {
     setVideoId(extractedId);
     setSearchInput('');
     
-    if (socket) {
-      socket.emit('sync_playback', {
-        roomId,
-        state: { videoId: extractedId, isPlaying: true, timestamp: 0 }
+    if (channel) {
+      channel.trigger('client-playback-synced', {
+        videoId: extractedId, isPlaying: true, timestamp: 0
       });
     }
   };
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (!chatInput.trim() || !socket) return;
+    if (!chatInput.trim() || !channel) return;
     
-    socket.emit('send_message', { roomId, message: chatInput });
+    const chatMessage = {
+      id: Date.now() + Math.random().toString(36).substr(2, 9),
+      text: chatInput,
+      username: user.username,
+      profileImage: user.profileImage,
+      timestamp: Date.now()
+    };
+
+    // Add to our own state instantly
+    setMessages(prev => [...prev, chatMessage]);
+    
+    // Broadcast to others
+    channel.trigger('client-new-message', chatMessage);
+    
     setChatInput('');
   };
 
   const copyRoomId = () => {
     navigator.clipboard.writeText(roomId);
     alert('Room ID copied to clipboard!');
+  };
+  
+  const renderProfileImage = (imgSrc) => {
+    if (!imgSrc) return null;
+    return imgSrc.startsWith('data:image') ? imgSrc : `${BACKEND_URL}${imgSrc}`;
   };
 
   return (
@@ -221,13 +282,13 @@ const Session = () => {
             <Users size={20} /> Listeners ({users.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {users.map((u) => (
-              <div key={u.socketId} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {users.map((u, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 {u.profileImage ? (
-                  <img src={`${SOCKET_SERVER_URL}${u.profileImage}`} alt="Profile" style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--border-color)', objectFit: 'cover' }} />
+                  <img src={renderProfileImage(u.profileImage)} alt="Profile" style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--border-color)', objectFit: 'cover' }} />
                 ) : (
                   <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent-blue)', border: '2px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                    {u.username.charAt(0).toUpperCase()}
+                    {u.username?.charAt(0).toUpperCase() || '?'}
                   </div>
                 )}
                 <span style={{ fontWeight: 600 }}>{u.username} {u.username === user?.username ? '(You)' : ''}</span>
@@ -251,10 +312,10 @@ const Session = () => {
                 <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     {msg.profileImage ? (
-                      <img src={`${SOCKET_SERVER_URL}${msg.profileImage}`} alt="Profile" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+                      <img src={renderProfileImage(msg.profileImage)} alt="Profile" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
                     ) : (
                       <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--bg-color)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
-                        {msg.username.charAt(0).toUpperCase()}
+                        {msg.username?.charAt(0).toUpperCase() || '?'}
                       </div>
                     )}
                     <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{msg.username}</span>
