@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap');
+
+:root {
+  --bg-color: #f0f4f8; /* Soft pastel blue-ish grey */
+  --text-color: #111111;
+  
+  /* Soft Neobrutal Pastel Colors */
+  --accent-pink: #ffb6e2;
+  --accent-yellow: #ffe975;
+  --accent-blue: #a3cfff;
+  --accent-green: #9bf0b6;
+  
+  --border-width: 3px;
+  --border-color: #2c2c2c;
+  --shadow-color: rgba(44, 44, 44, 0.4);
+  --shadow-offset: 4px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  min-height: 100vh;
+  /* Soft dotted background */
+  background-image: radial-gradient(#d1d9e6 2px, transparent 2px);
+  background-size: 32px 32px;
+}
+
+/* Soft Neobrutal Utilities */
+.neo-panel {
+  background: white;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 20px; /* Softer corners */
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 12px var(--shadow-color); /* Blurry, soft shadow */
+}
+
+.neo-button {
+  background: var(--accent-pink);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 16px;
+  padding: 12px 24px;
+  color: var(--text-color);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: 4px 4px 8px var(--shadow-color);
+  transition: all 0.1s ease;
+  letter-spacing: 0.5px;
+}
+
+.neo-button:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 10px var(--shadow-color);
+}
+
+.neo-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 4px var(--shadow-color);
+}
+
+.neo-button.yellow { background: var(--accent-yellow); }
+.neo-button.blue { background: var(--accent-blue); }
+.neo-button.green { background: var(--accent-green); }
+
+.neo-input {
+  background: white;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 16px;
+  padding: 12px 16px;
+  color: var(--text-color);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 1rem;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.neo-input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: inset 2px 2px 6px rgba(0,0,0,0.05);
+}
+
+.neo-header-text {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-shadow: 2px 2px 0px white, 4px 4px 0px var(--accent-yellow);
+}
+
+.neo-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--accent-blue);
+  border-radius: 10px;
+  border: 2px solid var(--bg-color);
+}

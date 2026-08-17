@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: multiuser-music-website
+    env: node
+    buildCommand: "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend"
+    startCommand: "npm start --prefix backend"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: music-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+
+databases:
+  - name: music-db
+    databaseName: musicdb
+    user: musicuser
