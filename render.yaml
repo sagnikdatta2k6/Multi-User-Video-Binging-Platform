@@ -8,15 +8,5 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: music-db
-          property: connectionString
       - key: JWT_SECRET
         generateValue: true
-
-databases:
-  - name: music-db
-    databaseName: musicdb
-    user: musicuser
-    plan: free
