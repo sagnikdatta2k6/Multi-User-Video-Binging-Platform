@@ -8,7 +8,8 @@ const Settings = () => {
   const { user, updateProfile } = useContext(AuthContext);
   const [username, setUsername] = useState(user?.username || '');
   const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(user?.profileImage ? `http://localhost:3001${user.profileImage}` : null);
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+  const [preview, setPreview] = useState(user?.profileImage ? `${backendUrl}${user.profileImage}` : null);
   const [status, setStatus] = useState('');
   const navigate = useNavigate();
 

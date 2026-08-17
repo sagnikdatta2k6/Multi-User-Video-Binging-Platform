@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { Users, Copy, Music, LogOut, Search, Send, MessageCircle } from 'lucide-react';
 import { AuthContext } from './context/AuthContext';
 
-const SOCKET_SERVER_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+const SOCKET_SERVER_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 const Session = () => {
   const { roomId } = useParams();
@@ -224,7 +224,7 @@ const Session = () => {
             {users.map((u) => (
               <div key={u.socketId} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 {u.profileImage ? (
-                  <img src={`http://localhost:3001${u.profileImage}`} alt="Profile" style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--border-color)', objectFit: 'cover' }} />
+                  <img src={`${SOCKET_SERVER_URL}${u.profileImage}`} alt="Profile" style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--border-color)', objectFit: 'cover' }} />
                 ) : (
                   <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent-blue)', border: '2px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
                     {u.username.charAt(0).toUpperCase()}
@@ -251,7 +251,7 @@ const Session = () => {
                 <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     {msg.profileImage ? (
-                      <img src={`http://localhost:3001${msg.profileImage}`} alt="Profile" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+                      <img src={`${SOCKET_SERVER_URL}${msg.profileImage}`} alt="Profile" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
                     ) : (
                       <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--bg-color)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
                         {msg.username.charAt(0).toUpperCase()}
