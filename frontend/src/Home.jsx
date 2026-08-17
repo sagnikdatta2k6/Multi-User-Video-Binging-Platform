@@ -60,10 +60,10 @@ const Home = () => {
         }}
       >
         <h1 className="neo-header-text" style={{ marginBottom: '1rem' }}>
-          Listen<br/><span style={{ color: 'var(--accent-pink)' }}>Together</span>
+          Binge<br/><span style={{ color: 'var(--accent-pink)' }}>Together</span>
         </h1>
         <p style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '2.5rem', color: '#555' }}>
-          Sync YouTube music with your friends.
+          Sync your video binging together.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'left' }}>
