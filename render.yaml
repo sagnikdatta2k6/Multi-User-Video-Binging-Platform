@@ -2,6 +2,7 @@ services:
   - type: web
     name: multiuser-music-website
     env: node
+    plan: free
     buildCommand: "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend"
     startCommand: "npm start --prefix backend"
     envVars:
@@ -18,3 +19,4 @@ databases:
   - name: music-db
     databaseName: musicdb
     user: musicuser
+    plan: free
