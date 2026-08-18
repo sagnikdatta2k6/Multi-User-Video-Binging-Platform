@@ -4,7 +4,7 @@
     { "src": "backend/server.js", "use": "@vercel/node" }
   ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/backend/server.js" },
+    { "source": "/api/(.*)", "destination": "/backend/server" },
     { "source": "/(.*)", "destination": "/frontend/dist/$1" }
   ]
 }
