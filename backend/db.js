@@ -17,7 +17,11 @@ if (process.env.DATABASE_URL) {
   });
 } else {
   console.warn('DATABASE_URL is missing. Please provide one.');
-  process.exit(1);
+  // Return a dummy object during Vercel build time so it doesn't crash
+  sequelize = {
+    sync: async () => {},
+    define: () => ({}),
+  };
 }
 
 module.exports = sequelize;
