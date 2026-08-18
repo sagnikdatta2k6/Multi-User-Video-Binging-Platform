@@ -4,24 +4,9 @@
   "description": "Multiuser Music Streaming Platform Backend",
   "scripts": {
     "start": "cd backend && npm start",
-    "postinstall": "cd backend && npm install && cd ../frontend && npm install",
-    "build": "cd frontend && npm run build"
+    "postinstall": "cd backend && npm install"
   },
   "engines": {
     "node": ">=18.0.0"
-  },
-  "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "multer": "^2.2.0",
-    "nodemailer": "^9.0.5",
-    "pg": "^8.23.0",
-    "pg-hstore": "^2.3.4",
-    "pusher": "^5.3.4",
-    "sequelize": "^6.37.8",
-    "google-auth-library": "^9.14.0"
   }
 }
