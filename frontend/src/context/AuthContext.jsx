@@ -53,8 +53,14 @@ export const AuthProvider = ({ children }) => {
     setUser(data);
   };
 
+  const loginWithGoogle = async (credential) => {
+    const { data } = await axios.post('/auth/google', { credential });
+    localStorage.setItem('token', data.token);
+    setUser(data.user);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, loginWithGoogle, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
