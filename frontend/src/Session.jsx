@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { Users, Copy, Music, LogOut, Search, Send, MessageCircle } from 'lucide-react';
 import { AuthContext } from './context/AuthContext';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
 const Session = () => {
   const { roomId } = useParams();

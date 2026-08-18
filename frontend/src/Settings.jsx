@@ -8,7 +8,7 @@ const Settings = () => {
   const { user, updateProfile } = useContext(AuthContext);
   const [username, setUsername] = useState(user?.username || '');
   const [file, setFile] = useState(null);
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+  const backendUrl = import.meta.env.PROD ? '' : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
   
   const getInitialPreview = () => {
     if (!user?.profileImage) return null;

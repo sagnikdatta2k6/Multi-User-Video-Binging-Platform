@@ -37,14 +37,12 @@ app.post('/api/pusher/auth', (req, res) => {
   res.send(authResponse);
 });
 
-// Sync Database locally if not on Vercel
-if (process.env.NODE_ENV !== 'production') {
-  sequelize.sync().then(() => {
-    console.log('Database synced');
-  }).catch(err => {
-    console.error('Unable to connect to the database:', err);
-  });
-}
+// Sync Database on cold start (Creates Neon tables if they don't exist)
+sequelize.sync().then(() => {
+  console.log('Database synced');
+}).catch(err => {
+  console.error('Unable to connect to the database:', err);
+});
 
 // Support for local development
 if (require.main === module) {
