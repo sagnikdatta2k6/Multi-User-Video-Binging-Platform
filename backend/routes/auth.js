@@ -77,7 +77,7 @@ router.post('/google', async (req, res) => {
     // Client ID verification can optionally be skipped if we trust the token comes from our frontend, 
     // but the library does it automatically if we initialize with a Client ID.
     // We will initialize it inside the route so we don't crash if GOOGLE_CLIENT_ID isn't set yet.
-    const clientId = process.env.GOOGLE_CLIENT_ID || 'dummy_client_id';
+    const clientId = process.env.GOOGLE_CLIENT_ID || '1037274982928-6avsfujbo6sf1ihbo1sdin9bbnjapcg6.apps.googleusercontent.com';
     const client = new OAuth2Client(clientId);
 
     const ticket = await client.verifyIdToken({

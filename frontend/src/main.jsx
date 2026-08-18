@@ -7,7 +7,7 @@ import './index.css'
 import App from './App.jsx'
 
 // To avoid crashing if not set, fallback to a dummy client ID temporarily
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy_client_id';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '1037274982928-6avsfujbo6sf1ihbo1sdin9bbnjapcg6.apps.googleusercontent.com';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
