@@ -1,13 +1,18 @@
 import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { PlayCircle, Users, Settings } from 'lucide-react';
+import { PlayCircle, Users, Settings, LogOut } from 'lucide-react';
 import { AuthContext } from './context/AuthContext';
 
 const Home = () => {
   const [roomId, setRoomId] = useState('');
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const handleCreateSession = () => {
     const newRoomId = Math.random().toString(36).substring(2, 9);
@@ -44,6 +49,9 @@ const Home = () => {
         )}
         <button className="neo-button blue" onClick={() => navigate('/settings')} style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Settings size={18} /> Settings
+        </button>
+        <button className="neo-button" onClick={handleLogout} style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px', background: '#ffcccc' }}>
+          <LogOut size={18} /> Logout
         </button>
       </div>
 
