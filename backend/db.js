@@ -16,12 +16,8 @@ if (process.env.DATABASE_URL) {
     logging: false
   });
 } else {
-  // Development: SQLite
-  sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: path.join(__dirname, 'database.sqlite'),
-    logging: false
-  });
+  console.warn('DATABASE_URL is missing. Please provide one.');
+  process.exit(1);
 }
 
 module.exports = sequelize;
