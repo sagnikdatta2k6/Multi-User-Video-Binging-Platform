@@ -27,7 +27,7 @@ const Login = () => {
       await loginWithGoogle(credentialResponse.credential);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Google login failed');
+      setError(err.response?.data?.error || 'Backend crashed or network error');
     }
   };
 
@@ -44,7 +44,7 @@ const Login = () => {
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
-            onError={() => setError('Google login failed')}
+            onError={() => setError('Google popup failed. Is your Vercel URL added to Authorized JavaScript origins?')}
             useOneTap
           />
         </div>
