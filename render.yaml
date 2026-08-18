@@ -3,8 +3,8 @@ services:
     name: multiuser-music-website
     env: node
     plan: free
-    buildCommand: "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend"
-    startCommand: "npm start --prefix backend"
+    buildCommand: "npm install --prefix frontend/backend && npm install --prefix frontend && npm run build --prefix frontend"
+    startCommand: "npm start --prefix frontend/backend"
     envVars:
       - key: NODE_ENV
         value: production

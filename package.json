@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Multiuser Music Streaming Platform Backend",
   "scripts": {
-    "start": "cd backend && npm start",
-    "postinstall": "cd backend && npm install && cd ../frontend && npm install",
+    "start": "cd frontend/backend && npm start",
+    "postinstall": "cd frontend/backend && npm install && cd .. && npm install",
     "build": "cd frontend && npm run build"
   },
   "engines": {
