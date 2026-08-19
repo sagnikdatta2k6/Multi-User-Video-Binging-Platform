@@ -15,7 +15,24 @@ const Session = () => {
 
   const [channel, setChannel] = useState(null);
   const [users, setUsers] = useState([]);
-  const [videoId, setVideoId] = useState('');
+  
+  const [videoIdState, setVideoIdState] = useState('');
+  const videoIdRef = useRef('');
+  
+  const setVideoId = (id) => {
+    if (typeof id === 'function') {
+      setVideoIdState(prev => {
+        const next = id(prev);
+        videoIdRef.current = next;
+        return next;
+      });
+    } else {
+      setVideoIdState(id);
+      videoIdRef.current = id;
+    }
+  };
+  const videoId = videoIdState;
+
   const [searchInput, setSearchInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
@@ -85,7 +102,7 @@ const Session = () => {
              player.getCurrentTime().then(timestamp => {
                roomChannel.trigger('client-room-state', {
                  users: newUsers,
-                 playbackState: { videoId, isPlaying: state === 1, timestamp }
+                 playbackState: { videoId: videoIdRef.current, isPlaying: state === 1, timestamp }
                });
              });
            });
@@ -93,7 +110,7 @@ const Session = () => {
       } else {
         roomChannel.trigger('client-room-state', {
           users: newUsers,
-          playbackState: { videoId, isPlaying: false, timestamp: 0 }
+          playbackState: { videoId: videoIdRef.current, isPlaying: false, timestamp: 0 }
         });
       }
     });
@@ -107,7 +124,7 @@ const Session = () => {
       
       setUsers(uniqueUsers);
       usersRef.current = uniqueUsers;
-      if (state.playbackState.videoId && !videoId) {
+      if (state.playbackState.videoId && !videoIdRef.current) {
         setVideoId(state.playbackState.videoId);
       }
     });
