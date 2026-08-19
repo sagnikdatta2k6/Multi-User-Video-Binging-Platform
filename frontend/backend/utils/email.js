@@ -3,24 +3,27 @@ const nodemailer = require('nodemailer');
 let transporter;
 
 const initializeTransporter = async () => {
-  // Use Ethereal for testing without real credentials
-  let testAccount = await nodemailer.createTestAccount();
-  
-  transporter = nodemailer.createTransport({
-    host: "smtp.ethereal.email",
-    port: 587,
-    secure: false,
-    auth: {
-      user: testAccount.user,
-      pass: testAccount.pass,
-    },
-  });
-  console.log('Ethereal Email transporter initialized.');
+  if (transporter) return; // Already initialized
+  try {
+    let testAccount = await nodemailer.createTestAccount();
+    transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      },
+    });
+    console.log('Ethereal Email transporter initialized.');
+  } catch (err) {
+    console.error('Failed to initialize Ethereal Email:', err);
+  }
 };
 
-initializeTransporter();
-
 const sendWelcomeEmail = async (userEmail, username) => {
+  await initializeTransporter();
+  
   if (!transporter) {
     console.error('Transporter not initialized yet');
     return;
