@@ -26,7 +26,11 @@ app.use('/api/user', require('./routes/user'));
 // Room Endpoints
 app.post('/api/room', async (req, res) => {
   try {
-    await Room.sync(); // Ensure table exists
+    try {
+      await Room.sync({ alter: true }); // Ensure table exists and schema is updated
+    } catch (e) {
+      await Room.sync({ force: true }); // Recreate if type casting fails
+    }
     const { roomId, password, hostId } = req.body;
     const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
     
@@ -45,7 +49,11 @@ app.post('/api/room', async (req, res) => {
 
 app.post('/api/room/:roomId/verify', async (req, res) => {
   try {
-    await Room.sync(); // Ensure table exists
+    try {
+      await Room.sync({ alter: true }); // Ensure table exists and schema is updated
+    } catch (e) {
+      await Room.sync({ force: true }); // Recreate if type casting fails
+    }
     const { password } = req.body;
     const room = await Room.findByPk(req.params.roomId);
     
@@ -71,7 +79,11 @@ app.post('/api/room/:roomId/verify', async (req, res) => {
 
 app.get('/api/room/:roomId', async (req, res) => {
   try {
-    await Room.sync(); // Ensure table exists
+    try {
+      await Room.sync({ alter: true }); // Ensure table exists and schema is updated
+    } catch (e) {
+      await Room.sync({ force: true }); // Recreate if type casting fails
+    }
     const room = await Room.findByPk(req.params.roomId, {
       attributes: ['roomId', 'hostId', 'password']
     });
