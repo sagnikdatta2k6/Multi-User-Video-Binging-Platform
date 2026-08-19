@@ -1,4 +1,6 @@
 const { Sequelize } = require('sequelize');
+const pg = require('pg'); // Force Vercel to bundle pg
+const pgHstore = require('pg-hstore'); // Force Vercel to bundle pg-hstore
 const path = require('path');
 
 let sequelize;
