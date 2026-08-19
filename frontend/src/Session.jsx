@@ -55,13 +55,27 @@ const Session = () => {
       roomChannel.trigger('client-user-joined', myUser);
     });
 
+    roomChannel.bind('pusher:subscription_error', (err) => {
+      alert('Failed to connect to the room (Real-time Auth Error). Please check if Pusher credentials are correct.');
+    });
+
+    pusher.connection.bind('error', (err) => {
+      if (err.error && err.error.data && err.error.data.code === 4004) {
+        alert('Pusher Error: Over limit!');
+      } else {
+        console.error('Pusher error', err);
+      }
+    });
+
     // When another user joins
     roomChannel.bind('client-user-joined', (newUser) => {
-      setUsers(prev => {
-        const newUsers = [...prev.filter(u => u.socketId !== newUser.socketId), newUser];
-        usersRef.current = newUsers;
-        return newUsers;
-      });
+      // Calculate new users list synchronously
+      const currentUsers = usersRef.current || [];
+      const newUsers = [...currentUsers.filter(u => u.socketId !== newUser.socketId), newUser];
+      
+      // Update ref and state immediately
+      usersRef.current = newUsers;
+      setUsers(newUsers);
       
       // We send them our state so they know the current video and our presence
       if (playerRef.current) {
@@ -70,7 +84,7 @@ const Session = () => {
            player.getPlayerState().then(state => {
              player.getCurrentTime().then(timestamp => {
                roomChannel.trigger('client-room-state', {
-                 users: usersRef.current,
+                 users: newUsers,
                  playbackState: { videoId, isPlaying: state === 1, timestamp }
                });
              });
@@ -78,7 +92,7 @@ const Session = () => {
         }
       } else {
         roomChannel.trigger('client-room-state', {
-          users: usersRef.current,
+          users: newUsers,
           playbackState: { videoId, isPlaying: false, timestamp: 0 }
         });
       }
