@@ -4,6 +4,7 @@ import YouTube from 'react-youtube';
 import Pusher from 'pusher-js';
 import { motion } from 'framer-motion';
 import { Users, Copy, Music, LogOut, Search, Send, MessageCircle } from 'lucide-react';
+import axios from '../api/axios';
 import { AuthContext } from './context/AuthContext';
 
 const BACKEND_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
@@ -55,8 +56,17 @@ const Session = () => {
       authEndpoint: `${BACKEND_URL}/api/pusher/auth`,
     });
 
-    const roomChannel = pusher.subscribe(`private-room-${roomId}`);
+    const roomChannelName = `private-room-${roomId}`;
+    const roomChannel = pusher.subscribe(roomChannelName);
     setChannel(roomChannel);
+
+    const triggerServerEvent = (eventName, data) => {
+      axios.post('/pusher/trigger', {
+        channel: roomChannelName,
+        event: eventName,
+        data: data
+      }).catch(err => console.error('Trigger failed', err));
+    };
 
     // Initial join
     roomChannel.bind('pusher:subscription_succeeded', () => {
@@ -68,7 +78,7 @@ const Session = () => {
       setUsers([myUser]);
       
       // Tell others we joined
-      roomChannel.trigger('client-hello', myUser);
+      triggerServerEvent('server-hello', myUser);
     });
 
     roomChannel.bind('pusher:subscription_error', (err) => {
@@ -92,7 +102,7 @@ const Session = () => {
     };
 
     // When a new person says hello
-    roomChannel.bind('client-hello', (newUser) => {
+    roomChannel.bind('server-hello', (newUser) => {
       addOrUpdateUser(newUser);
       
       // Say hi back
@@ -101,14 +111,12 @@ const Session = () => {
         username: user.username, 
         profileImage: user.profileImage 
       };
-      roomChannel.trigger('client-im-here', myUser);
+      triggerServerEvent('server-im-here', myUser);
       
       // If we have a video playing, send them the video state
       if (videoIdRef.current) {
         const sendVideoState = (playbackState) => {
-          try {
-            roomChannel.trigger('client-room-state-video-only', playbackState);
-          } catch(e) {}
+          triggerServerEvent('server-room-state-video-only', playbackState);
         };
         
         try {
@@ -130,24 +138,24 @@ const Session = () => {
     });
 
     // When someone responds to our hello
-    roomChannel.bind('client-im-here', (existingUser) => {
+    roomChannel.bind('server-im-here', (existingUser) => {
       addOrUpdateUser(existingUser);
     });
 
     // When someone explicitly syncs video state
-    roomChannel.bind('client-room-state-video-only', (playbackState) => {
+    roomChannel.bind('server-room-state-video-only', (playbackState) => {
       if (playbackState.videoId && !videoIdRef.current) {
         setVideoId(playbackState.videoId);
       }
     });
 
     // Chat message received
-    roomChannel.bind('client-new-message', (message) => {
+    roomChannel.bind('server-new-message', (message) => {
       setMessages((prev) => [...prev, message]);
     });
 
     // Playback sync received
-    roomChannel.bind('client-playback-synced', (state) => {
+    roomChannel.bind('server-playback-synced', (state) => {
       // ALWAYS set the video ID first, even if the player hasn't mounted yet
       setVideoId(state.videoId);
 
@@ -194,9 +202,12 @@ const Session = () => {
     const isPlaying = state === 1;
     const timestamp = await player.getCurrentTime();
 
-    channel.trigger('client-playback-synced', {
-      videoId, isPlaying, timestamp
-    });
+    // We can use the same axios post function here
+    axios.post('/pusher/trigger', {
+      channel: `private-room-${roomId}`,
+      event: 'server-playback-synced',
+      data: { videoId, isPlaying, timestamp }
+    }).catch(console.error);
   };
 
   const onPlayerStateChange = (event) => {
@@ -227,9 +238,11 @@ const Session = () => {
     setSearchInput('');
     
     if (channel) {
-      channel.trigger('client-playback-synced', {
-        videoId: extractedId, isPlaying: true, timestamp: 0
-      });
+      axios.post('/pusher/trigger', {
+        channel: `private-room-${roomId}`,
+        event: 'server-playback-synced',
+        data: { videoId: extractedId, isPlaying: true, timestamp: 0 }
+      }).catch(console.error);
     }
   };
 
@@ -248,8 +261,12 @@ const Session = () => {
     // Add to our own state instantly
     setMessages(prev => [...prev, chatMessage]);
     
-    // Broadcast to others
-    channel.trigger('client-new-message', chatMessage);
+    // Broadcast to others via backend
+    axios.post('/pusher/trigger', {
+      channel: `private-room-${roomId}`,
+      event: 'server-new-message',
+      data: chatMessage
+    }).catch(console.error);
     
     setChatInput('');
   };

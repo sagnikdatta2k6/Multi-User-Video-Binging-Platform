@@ -37,6 +37,18 @@ app.post('/api/pusher/auth', (req, res) => {
   res.send(authResponse);
 });
 
+// Server-side Trigger Endpoint to bypass finicky Client Events
+app.post('/api/pusher/trigger', async (req, res) => {
+  const { channel, event, data } = req.body;
+  try {
+    await pusher.trigger(channel, event, data);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Pusher trigger error:', error);
+    res.status(500).json({ error: 'Failed to trigger event' });
+  }
+});
+
 // Sync Database on cold start (Creates Neon tables if they don't exist)
 sequelize.sync().then(() => {
   console.log('Database synced');
