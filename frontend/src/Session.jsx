@@ -114,15 +114,14 @@ const Session = () => {
 
     // Playback sync received
     roomChannel.bind('client-playback-synced', (state) => {
+      // ALWAYS set the video ID first, even if the player hasn't mounted yet
+      setVideoId(state.videoId);
+
       if (!playerRef.current) return;
       const player = playerRef.current.getInternalPlayer();
       if (!player) return;
 
       isSyncingRef.current = true;
-
-      if (state.videoId !== videoId) {
-        setVideoId(state.videoId);
-      }
 
       player.getCurrentTime().then(currentTime => {
         const timeDiff = Math.abs((currentTime || 0) - state.timestamp);
