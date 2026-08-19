@@ -3,6 +3,13 @@ const cors = require('cors');
 const path = require('path');
 const Pusher = require('pusher');
 const sequelize = require('./db');
+const User = require('./models/User');
+const Room = require('./models/Room');
+const bcrypt = require('bcryptjs');
+
+// Define relationships
+User.hasMany(Room, { foreignKey: 'hostId' });
+Room.belongsTo(User, { foreignKey: 'hostId' });
 
 const app = express();
 app.use(cors());
@@ -15,6 +22,71 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // API Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/user', require('./routes/user'));
+
+// Room Endpoints
+app.post('/api/room', async (req, res) => {
+  try {
+    const { roomId, password, hostId } = req.body;
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
+    
+    await Room.create({
+      roomId,
+      password: hashedPassword,
+      hostId
+    });
+    
+    res.json({ success: true, roomId });
+  } catch (error) {
+    console.error('Create room error', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/room/:roomId/verify', async (req, res) => {
+  try {
+    const { password } = req.body;
+    const room = await Room.findByPk(req.params.roomId);
+    
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    
+    if (!room.password) {
+      return res.json({ success: true }); // No password required
+    }
+    
+    const isMatch = await bcrypt.compare(password, room.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Incorrect password' });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Verify room error', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/room/:roomId', async (req, res) => {
+  try {
+    const room = await Room.findByPk(req.params.roomId, {
+      attributes: ['roomId', 'hostId', 'password']
+    });
+    
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    
+    res.json({
+      roomId: room.roomId,
+      hostId: room.hostId,
+      hasPassword: !!room.password
+    });
+  } catch (error) {
+    console.error('Get room error', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Pusher Setup
 const pusher = new Pusher({

@@ -17,8 +17,11 @@ const Session = () => {
 
   const [channel, setChannel] = useState(null);
   const [users, setUsers] = useState([]);
+  const [isHost, setIsHost] = useState(false);
+  const [isLoadingRoom, setIsLoadingRoom] = useState(true);
   
   const [videoIdState, setVideoIdState] = useState('');
+  const [iframeUrl, setIframeUrl] = useState('');
   const videoIdRef = useRef('');
   
   const setVideoId = (id) => {
@@ -55,6 +58,22 @@ const Session = () => {
 
   useEffect(() => {
     if (!user) return;
+    
+    // Check room host
+    const checkRoom = async () => {
+      try {
+        const res = await axios.get(`/room/${roomId}`);
+        if (res.data.hostId === user.id) {
+          setIsHost(true);
+        }
+      } catch (err) {
+        console.error('Failed to fetch room details', err);
+      } finally {
+        setIsLoadingRoom(false);
+      }
+    };
+    
+    checkRoom();
     
     // Make sure we have Pusher config
     const pusherKey = import.meta.env.VITE_PUSHER_KEY || 'app-key';
@@ -165,20 +184,20 @@ const Session = () => {
         };
         
         try {
-          if (playerRef.current) {
+          if (playerRef.current && videoIdRef.current) {
             const player = playerRef.current.getInternalPlayer();
             if (player && typeof player.getPlayerState === 'function') {
                player.getPlayerState().then(state => {
                  player.getCurrentTime().then(timestamp => {
-                   sendVideoState({ videoId: videoIdRef.current, isPlaying: state === 1, timestamp });
-                 }).catch(() => sendVideoState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 }));
-               }).catch(() => sendVideoState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 }));
+                   sendVideoState({ videoId: videoIdRef.current, iframeUrl: '', isPlaying: state === 1, timestamp });
+                 }).catch(() => sendVideoState({ videoId: videoIdRef.current, iframeUrl: '', isPlaying: false, timestamp: 0 }));
+               }).catch(() => sendVideoState({ videoId: videoIdRef.current, iframeUrl: '', isPlaying: false, timestamp: 0 }));
                return;
             }
           }
         } catch(e) {}
         
-        sendVideoState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 });
+        sendVideoState({ videoId: videoIdRef.current, iframeUrl, isPlaying: false, timestamp: 0 });
       }
     });
 
@@ -186,6 +205,10 @@ const Session = () => {
     roomChannel.bind('server-room-state-video-only', (playbackState) => {
       if (playbackState.videoId && !videoIdRef.current) {
         setVideoId(playbackState.videoId);
+        setIframeUrl('');
+      } else if (playbackState.iframeUrl) {
+        setIframeUrl(playbackState.iframeUrl);
+        setVideoId('');
       }
     });
 
@@ -216,8 +239,15 @@ const Session = () => {
 
     // Playback sync received
     roomChannel.bind('server-playback-synced', (state) => {
+      if (state.iframeUrl) {
+        setIframeUrl(state.iframeUrl);
+        setVideoId('');
+        return;
+      }
+      
       // ALWAYS set the video ID first, even if the player hasn't mounted yet
       setVideoId(state.videoId);
+      setIframeUrl('');
 
       if (!playerRef.current) return;
       const player = playerRef.current.getInternalPlayer();
@@ -267,7 +297,7 @@ const Session = () => {
     axios.post('/pusher/trigger', {
       channel: `presence-room-${roomId}`,
       event: 'server-playback-synced',
-      data: { videoId, isPlaying, timestamp }
+      data: { videoId, iframeUrl: '', isPlaying, timestamp }
     }).catch(console.error);
   };
 
@@ -281,9 +311,12 @@ const Session = () => {
     e.preventDefault();
     if (!searchInput) return;
 
+    let isYouTube = false;
     let extractedId = searchInput;
+    
     try {
       if (searchInput.includes('youtube.com') || searchInput.includes('youtu.be')) {
+        isYouTube = true;
         const url = new URL(searchInput);
         if (url.hostname.includes('youtu.be')) {
           extractedId = url.pathname.slice(1);
@@ -292,19 +325,35 @@ const Session = () => {
         } else {
           extractedId = url.searchParams.get('v') || extractedId;
         }
+      } else if (!searchInput.startsWith('http://') && !searchInput.startsWith('https://')) {
+        // Assume it's a direct YouTube ID if it's not a URL
+        isYouTube = true;
       }
     } catch(e) {
       console.log('Invalid URL, treating as video ID');
+      isYouTube = true;
     }
 
-    setVideoId(extractedId);
+    if (isYouTube) {
+      setVideoId(extractedId);
+      setIframeUrl('');
+    } else {
+      setIframeUrl(searchInput);
+      setVideoId('');
+    }
+    
     setSearchInput('');
     
     if (channel) {
       axios.post('/pusher/trigger', {
         channel: `presence-room-${roomId}`,
         event: 'server-playback-synced',
-        data: { videoId: extractedId, isPlaying: true, timestamp: 0 }
+        data: { 
+          videoId: isYouTube ? extractedId : '', 
+          iframeUrl: isYouTube ? '' : searchInput,
+          isPlaying: true, 
+          timestamp: 0 
+        }
       }).catch(console.error);
     }
   };
@@ -398,28 +447,31 @@ const Session = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <Music size={28} color="var(--accent-pink)" />
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Room <span style={{ color: 'var(--accent-pink)' }}>#{roomId}</span></h2>
+            {isHost && <span style={{ background: 'var(--accent-blue)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>HOST</span>}
           </div>
           <button className="neo-button" onClick={copyRoomId} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Copy size={16} /> Copy ID
           </button>
         </div>
 
-        {/* Search Input */}
-        <form onSubmit={handleSearch} className="neo-panel" style={{ padding: '1rem', display: 'flex', gap: '1rem' }}>
-          <input 
-            type="text" 
-            className="neo-input" 
-            placeholder="Paste YouTube URL or Video ID to play..." 
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
-          <button type="submit" className="neo-button yellow" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Search size={20} />
-          </button>
-          <button type="button" className={`neo-button ${isSharingScreen ? 'red' : 'blue'}`} onClick={handleShareScreen} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: isSharingScreen ? '#ffcccc' : '' }} title={isSharingScreen ? "Stop Sharing" : "Share Screen"}>
-            <Monitor size={20} />
-          </button>
-        </form>
+        {/* Search Input (Host Only) */}
+        {!isLoadingRoom && isHost && (
+          <form onSubmit={handleSearch} className="neo-panel" style={{ padding: '1rem', display: 'flex', gap: '1rem' }}>
+            <input 
+              type="text" 
+              className="neo-input" 
+              placeholder="Paste YouTube URL, Video ID, or any Website URL..." 
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+            <button type="submit" className="neo-button yellow" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Search size={20} />
+            </button>
+            <button type="button" className={`neo-button ${isSharingScreen ? 'red' : 'blue'}`} onClick={handleShareScreen} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: isSharingScreen ? '#ffcccc' : '' }} title={isSharingScreen ? "Stop Sharing" : "Share Screen"}>
+              <Monitor size={20} />
+            </button>
+          </form>
+        )}
 
         {/* Screen Share Container */}
         {remoteStream && (
@@ -442,6 +494,13 @@ const Session = () => {
               }}
               onStateChange={onPlayerStateChange}
               style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+            />
+          ) : iframeUrl ? (
+            <iframe 
+              src={iframeUrl} 
+              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              title="Embedded Content"
             />
           ) : (
             <div style={{ textAlign: 'center', color: '#666' }}>
@@ -527,7 +586,7 @@ const Session = () => {
           </form>
         </div>
 
-        <button className="neo-button" onClick={() => navigate('/')} style={{ marginTop: 'auto', background: '#ffcccc', display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+        <button className="neo-button" onClick={() => navigate('/', { replace: true })} style={{ marginTop: 'auto', background: '#ffcccc', display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
           <LogOut size={18} /> Leave Session
         </button>
       </div>

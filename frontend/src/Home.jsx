@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { PlayCircle, Users, Settings, LogOut } from 'lucide-react';
 import { AuthContext } from './context/AuthContext';
+import axios from '../api/axios';
 
 const Home = () => {
   const [roomId, setRoomId] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
   const navigate = useNavigate();
   const { user, logout } = useContext(AuthContext);
 
@@ -14,14 +16,43 @@ const Home = () => {
     navigate('/login');
   };
 
-  const handleCreateSession = () => {
-    const newRoomId = Math.random().toString(36).substring(2, 9);
-    navigate(`/session/${newRoomId}`);
+  const handleCreateSession = async () => {
+    const newRoomId = Math.random().toString(36).substring(2, 9).toUpperCase();
+    try {
+      await axios.post('/room', {
+        roomId: newRoomId,
+        password: createPassword || null,
+        hostId: user.id
+      });
+      navigate(`/session/${newRoomId}`);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to create room');
+    }
   };
 
-  const handleJoinSession = () => {
+  const handleJoinSession = async () => {
     if (!roomId.trim()) return;
-    navigate(`/session/${roomId}`);
+    const cleanRoomId = roomId.trim().toUpperCase();
+    
+    try {
+      const res = await axios.get(`/room/${cleanRoomId}`);
+      if (res.data.hasPassword) {
+        const pwd = window.prompt("This room requires a password:");
+        if (pwd === null) return; // User cancelled
+        try {
+          await axios.post(`/room/${cleanRoomId}/verify`, { password: pwd });
+          navigate(`/session/${cleanRoomId}`);
+        } catch (e) {
+          alert('Incorrect password!');
+        }
+      } else {
+        navigate(`/session/${cleanRoomId}`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Room not found or server error');
+    }
   };
 
   return (
@@ -76,14 +107,23 @@ const Home = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'left' }}>
           
-          <button 
-            className="neo-button green" 
-            onClick={handleCreateSession}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', padding: '16px' }}
-          >
-            <PlayCircle size={24} />
-            Start New Session
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <input 
+              type="text" 
+              className="neo-input" 
+              placeholder="Set Password (Optional)" 
+              value={createPassword}
+              onChange={(e) => setCreatePassword(e.target.value)}
+            />
+            <button 
+              className="neo-button green" 
+              onClick={handleCreateSession}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', padding: '16px' }}
+            >
+              <PlayCircle size={24} />
+              Start New Session
+            </button>
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '0.5rem 0' }}>
             <div style={{ flex: 1, height: '2px', background: 'var(--border-color)' }}></div>
