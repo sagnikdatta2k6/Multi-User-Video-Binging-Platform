@@ -25,15 +25,27 @@ const pusher = new Pusher({
   useTLS: true
 });
 
-// Pusher Authentication Endpoint for Private Channels (Client Events)
+// Pusher Authentication Endpoint for Private and Presence Channels
 app.post('/api/pusher/auth', (req, res) => {
   const socketId = req.body.socket_id;
   const channel = req.body.channel_name;
   
-  // In a real app, you would verify the user's JWT token here
-  // before granting access to the private channel.
-  // For simplicity, we authorize any logged-in user who calls this.
-  const authResponse = pusher.authorizeChannel(socketId, channel);
+  let authResponse;
+  
+  if (channel.startsWith('presence-')) {
+    // For presence channels, extract user data sent by frontend
+    const presenceData = {
+      user_id: req.body.user_id || socketId, // fallback to socketId if user_id missing
+      user_info: {
+        username: req.body.username || 'Anonymous',
+        profileImage: req.body.profileImage || null
+      }
+    };
+    authResponse = pusher.authorizeChannel(socketId, channel, presenceData);
+  } else {
+    authResponse = pusher.authorizeChannel(socketId, channel);
+  }
+  
   res.send(authResponse);
 });
 

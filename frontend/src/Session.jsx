@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import YouTube from 'react-youtube';
 import Pusher from 'pusher-js';
 import { motion } from 'framer-motion';
-import { Users, Copy, Music, LogOut, Search, Send, MessageCircle } from 'lucide-react';
+import { Users, Copy, Music, LogOut, Search, Send, MessageCircle, Monitor } from 'lucide-react';
 import axios from '../api/axios';
+import Peer from 'peerjs';
 import { AuthContext } from './context/AuthContext';
 
 const BACKEND_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
@@ -38,9 +39,17 @@ const Session = () => {
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   
+  const [peerId, setPeerId] = useState('');
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [isSharingScreen, setIsSharingScreen] = useState(false);
+  
   const playerRef = useRef(null);
   const isSyncingRef = useRef(false);
   const chatBottomRef = useRef(null);
+  
+  const peerRef = useRef(null);
+  const myScreenStreamRef = useRef(null);
+  const remoteVideoRef = useRef(null);
   
   const usersRef = useRef([]);
 
@@ -53,10 +62,17 @@ const Session = () => {
 
     const pusher = new Pusher(pusherKey, {
       cluster: pusherCluster,
-      authEndpoint: `${BACKEND_URL}/api/pusher/auth`,
+      channelAuthorization: {
+        endpoint: `${BACKEND_URL}/api/pusher/auth`,
+        params: {
+          user_id: user.id || user.username,
+          username: user.username,
+          profileImage: user.profileImage
+        }
+      }
     });
 
-    const roomChannelName = `private-room-${roomId}`;
+    const roomChannelName = `presence-room-${roomId}`;
     const roomChannel = pusher.subscribe(roomChannelName);
     setChannel(roomChannel);
 
@@ -68,17 +84,65 @@ const Session = () => {
       }).catch(err => console.error('Trigger failed', err));
     };
 
-    // Initial join
-    roomChannel.bind('pusher:subscription_succeeded', () => {
-      const myUser = { 
-        socketId: pusher.connection.socket_id, 
-        username: user.username, 
-        profileImage: user.profileImage 
-      };
-      setUsers([myUser]);
+    const peer = new Peer();
+    peerRef.current = peer;
+
+    peer.on('open', id => {
+      setPeerId(id);
+    });
+
+    peer.on('call', call => {
+      if (myScreenStreamRef.current) {
+        call.answer(myScreenStreamRef.current);
+      } else {
+        call.answer();
+      }
       
-      // Tell others we joined
-      triggerServerEvent('server-hello', myUser);
+      call.on('stream', stream => {
+        setRemoteStream(stream);
+        setTimeout(() => {
+          if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
+        }, 100);
+      });
+    });
+
+    // Initial join / members list load
+    roomChannel.bind('pusher:subscription_succeeded', (members) => {
+      // members.members is an object where keys are user_ids and values are user_info
+      const initialUsers = [];
+      members.each(member => {
+        initialUsers.push({
+          socketId: member.id, // we map user_id to socketId for UI compatibility
+          username: member.info.username,
+          profileImage: member.info.profileImage
+        });
+      });
+      setUsers(initialUsers);
+      
+      // Since we just joined, we don't know the video state. 
+      // Ask the room for a video sync!
+      triggerServerEvent('server-request-video-sync', {});
+    });
+
+    // When someone else joins
+    roomChannel.bind('pusher:member_added', (member) => {
+      setUsers(prev => {
+        const list = prev || [];
+        const filtered = list.filter(u => u.username !== member.info.username);
+        return [...filtered, {
+          socketId: member.id,
+          username: member.info.username,
+          profileImage: member.info.profileImage
+        }];
+      });
+    });
+
+    // When someone leaves (closes tab, loses internet)
+    roomChannel.bind('pusher:member_removed', (member) => {
+      setUsers(prev => {
+        const list = prev || [];
+        return list.filter(u => u.username !== member.info.username);
+      });
     });
 
     roomChannel.bind('pusher:subscription_error', (err) => {
@@ -93,27 +157,8 @@ const Session = () => {
       }
     });
 
-    const addOrUpdateUser = (newUser) => {
-      setUsers(prev => {
-        const list = prev || [];
-        const filtered = list.filter(u => u.username !== newUser.username);
-        return [...filtered, newUser];
-      });
-    };
-
-    // When a new person says hello
-    roomChannel.bind('server-hello', (newUser) => {
-      addOrUpdateUser(newUser);
-      
-      // Say hi back
-      const myUser = { 
-        socketId: pusher.connection.socket_id, 
-        username: user.username, 
-        profileImage: user.profileImage 
-      };
-      triggerServerEvent('server-im-here', myUser);
-      
-      // If we have a video playing, send them the video state
+    // Someone just joined and is requesting the current video state
+    roomChannel.bind('server-request-video-sync', () => {
       if (videoIdRef.current) {
         const sendVideoState = (playbackState) => {
           triggerServerEvent('server-room-state-video-only', playbackState);
@@ -137,11 +182,6 @@ const Session = () => {
       }
     });
 
-    // When someone responds to our hello
-    roomChannel.bind('server-im-here', (existingUser) => {
-      addOrUpdateUser(existingUser);
-    });
-
     // When someone explicitly syncs video state
     roomChannel.bind('server-room-state-video-only', (playbackState) => {
       if (playbackState.videoId && !videoIdRef.current) {
@@ -152,6 +192,26 @@ const Session = () => {
     // Chat message received
     roomChannel.bind('server-new-message', (message) => {
       setMessages((prev) => [...prev, message]);
+    });
+    
+    // Screen share started by someone else
+    roomChannel.bind('server-screen-share-started', (data) => {
+      if (data.peerId && peerRef.current) {
+        const call = peerRef.current.call(data.peerId);
+        if (call) {
+          call.on('stream', stream => {
+            setRemoteStream(stream);
+            setTimeout(() => {
+              if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
+            }, 100);
+          });
+        }
+      }
+    });
+
+    // Screen share stopped
+    roomChannel.bind('server-screen-share-stopped', () => {
+      setRemoteStream(null);
     });
 
     // Playback sync received
@@ -184,8 +244,9 @@ const Session = () => {
     });
 
     return () => {
-      pusher.unsubscribe(`private-room-${roomId}`);
+      pusher.unsubscribe(`presence-room-${roomId}`);
       pusher.disconnect();
+      if (peerRef.current) peerRef.current.destroy();
     };
   }, [roomId, user]); // Note: depending on videoId here causes re-subscriptions, so we use refs/state carefully
 
@@ -204,7 +265,7 @@ const Session = () => {
 
     // We can use the same axios post function here
     axios.post('/pusher/trigger', {
-      channel: `private-room-${roomId}`,
+      channel: `presence-room-${roomId}`,
       event: 'server-playback-synced',
       data: { videoId, isPlaying, timestamp }
     }).catch(console.error);
@@ -226,6 +287,8 @@ const Session = () => {
         const url = new URL(searchInput);
         if (url.hostname.includes('youtu.be')) {
           extractedId = url.pathname.slice(1);
+        } else if (url.pathname.includes('/shorts/')) {
+          extractedId = url.pathname.split('/shorts/')[1].split('?')[0];
         } else {
           extractedId = url.searchParams.get('v') || extractedId;
         }
@@ -239,10 +302,51 @@ const Session = () => {
     
     if (channel) {
       axios.post('/pusher/trigger', {
-        channel: `private-room-${roomId}`,
+        channel: `presence-room-${roomId}`,
         event: 'server-playback-synced',
         data: { videoId: extractedId, isPlaying: true, timestamp: 0 }
       }).catch(console.error);
+    }
+  };
+
+  const handleShareScreen = async () => {
+    try {
+      if (isSharingScreen) {
+        // Stop sharing
+        if (myScreenStreamRef.current) {
+          myScreenStreamRef.current.getTracks().forEach(t => t.stop());
+        }
+        setIsSharingScreen(false);
+        myScreenStreamRef.current = null;
+        axios.post('/pusher/trigger', {
+          channel: `presence-room-${roomId}`,
+          event: 'server-screen-share-stopped',
+          data: {}
+        }).catch(console.error);
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      myScreenStreamRef.current = stream;
+      setIsSharingScreen(true);
+      
+      stream.getVideoTracks()[0].onended = () => {
+        setIsSharingScreen(false);
+        myScreenStreamRef.current = null;
+        axios.post('/pusher/trigger', {
+          channel: `presence-room-${roomId}`,
+          event: 'server-screen-share-stopped',
+          data: {}
+        }).catch(console.error);
+      };
+
+      axios.post('/pusher/trigger', {
+        channel: `presence-room-${roomId}`,
+        event: 'server-screen-share-started',
+        data: { peerId }
+      }).catch(console.error);
+    } catch (e) {
+      console.error('Screen share failed', e);
     }
   };
 
@@ -263,7 +367,7 @@ const Session = () => {
     
     // Broadcast to others via backend
     axios.post('/pusher/trigger', {
-      channel: `private-room-${roomId}`,
+      channel: `presence-room-${roomId}`,
       event: 'server-new-message',
       data: chatMessage
     }).catch(console.error);
@@ -312,7 +416,18 @@ const Session = () => {
           <button type="submit" className="neo-button yellow" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Search size={20} />
           </button>
+          <button type="button" className={`neo-button ${isSharingScreen ? 'red' : 'blue'}`} onClick={handleShareScreen} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: isSharingScreen ? '#ffcccc' : '' }} title={isSharingScreen ? "Stop Sharing" : "Share Screen"}>
+            <Monitor size={20} />
+          </button>
         </form>
+
+        {/* Screen Share Container */}
+        {remoteStream && (
+          <div className="neo-panel" style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#000', marginBottom: '1rem', border: '4px solid var(--accent-blue)' }}>
+            <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '4px 8px', borderRadius: '4px', zIndex: 10, fontSize: '0.8rem', fontWeight: 'bold' }}>Live Screen Share</div>
+            <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          </div>
+        )}
 
         {/* Player Container */}
         <div className="neo-panel" style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#000' }}>
