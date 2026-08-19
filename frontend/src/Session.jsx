@@ -443,15 +443,20 @@ const Session = () => {
       <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         
         {/* Header */}
-        <div className="neo-panel" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="neo-panel" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <Music size={28} color="var(--accent-pink)" />
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Room <span style={{ color: 'var(--accent-pink)' }}>#{roomId}</span></h2>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Room <span style={{ color: 'var(--accent-pink)' }}>#{roomId}</span></h2>
             {isHost && <span style={{ background: 'var(--accent-blue)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>HOST</span>}
           </div>
-          <button className="neo-button" onClick={copyRoomId} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Copy size={16} /> Copy ID
-          </button>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button type="button" className={`neo-button ${isSharingScreen ? 'red' : 'blue'}`} onClick={handleShareScreen} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', background: isSharingScreen ? '#ffcccc' : '' }} title={isSharingScreen ? "Stop Sharing" : "Share Screen"}>
+              <Monitor size={16} /> {isSharingScreen ? "Stop Sharing" : "Share Screen"}
+            </button>
+            <button className="neo-button" onClick={copyRoomId} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Copy size={16} /> Copy ID
+            </button>
+          </div>
         </div>
 
         {/* Search Input (Host Only) */}
@@ -466,9 +471,6 @@ const Session = () => {
             />
             <button type="submit" className="neo-button yellow" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Search size={20} />
-            </button>
-            <button type="button" className={`neo-button ${isSharingScreen ? 'red' : 'blue'}`} onClick={handleShareScreen} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: isSharingScreen ? '#ffcccc' : '' }} title={isSharingScreen ? "Stop Sharing" : "Share Screen"}>
-              <Monitor size={20} />
             </button>
           </form>
         )}
