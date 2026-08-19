@@ -52,4 +52,10 @@ if (require.main === module) {
   });
 }
 
+// Global Error Handler for Vercel Serverless reliability
+app.use((err, req, res, next) => {
+  console.error('Unhandled Express Error:', err);
+  res.status(500).json({ error: err.message || 'Internal Server Error' });
+});
+
 module.exports = app;

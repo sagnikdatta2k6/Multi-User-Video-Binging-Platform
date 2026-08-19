@@ -17,10 +17,17 @@ if (process.env.DATABASE_URL) {
   });
 } else {
   console.warn('DATABASE_URL is missing. Please provide one.');
-  // Return a dummy object during Vercel build time so it doesn't crash
+  // Return a proxy object during Vercel build time so it doesn't crash, 
+  // but throws a clear error if used at runtime
   sequelize = {
-    sync: async () => {},
-    define: () => ({}),
+    sync: async () => { console.warn('Database sync skipped - no DATABASE_URL'); },
+    define: () => {
+      return new Proxy({}, {
+        get: function(target, prop) {
+          return () => { throw new Error("DATABASE_URL is missing in Vercel environment variables. Please add it in Vercel Dashboard -> Settings -> Environment Variables."); };
+        }
+      });
+    },
   };
 }
 
