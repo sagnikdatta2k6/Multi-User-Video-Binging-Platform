@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { PlayCircle, Users, Settings, LogOut } from 'lucide-react';
 import { AuthContext } from './context/AuthContext';
-import axios from '../api/axios';
+import axios from './api/axios';
 
 const Home = () => {
   const [roomId, setRoomId] = useState('');

@@ -4,7 +4,7 @@ import YouTube from 'react-youtube';
 import Pusher from 'pusher-js';
 import { motion } from 'framer-motion';
 import { Users, Copy, Music, LogOut, Search, Send, MessageCircle, Monitor } from 'lucide-react';
-import axios from '../api/axios';
+import axios from './api/axios';
 import Peer from 'peerjs';
 import { AuthContext } from './context/AuthContext';
 
