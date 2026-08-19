@@ -69,9 +69,9 @@ const Session = () => {
 
     // When another user joins
     roomChannel.bind('client-user-joined', (newUser) => {
-      // Calculate new users list synchronously
+      // Calculate new users list synchronously, deduplicate by username
       const currentUsers = usersRef.current || [];
-      const newUsers = [...currentUsers.filter(u => u.socketId !== newUser.socketId), newUser];
+      const newUsers = [...currentUsers.filter(u => u.username !== newUser.username), newUser];
       
       // Update ref and state immediately
       usersRef.current = newUsers;
@@ -100,8 +100,13 @@ const Session = () => {
 
     // When someone sends us the room state (we just joined)
     roomChannel.bind('client-room-state', (state) => {
-      setUsers(state.users);
-      usersRef.current = state.users;
+      // Deduplicate the state.users by username just in case the sender had duplicates
+      const uniqueUsersMap = new Map();
+      state.users.forEach(u => uniqueUsersMap.set(u.username, u));
+      const uniqueUsers = Array.from(uniqueUsersMap.values());
+      
+      setUsers(uniqueUsers);
+      usersRef.current = uniqueUsers;
       if (state.playbackState.videoId && !videoId) {
         setVideoId(state.playbackState.videoId);
       }
