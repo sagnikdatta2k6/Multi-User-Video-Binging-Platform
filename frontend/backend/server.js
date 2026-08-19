@@ -43,7 +43,7 @@ app.post('/api/room', async (req, res) => {
     res.json({ success: true, roomId });
   } catch (error) {
     console.error('Create room error', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error', details: error.message, stack: error.stack });
   }
 });
 
