@@ -66,10 +66,9 @@ const Session = () => {
         profileImage: user.profileImage 
       };
       setUsers([myUser]);
-      usersRef.current = [myUser];
       
       // Tell others we joined
-      roomChannel.trigger('client-user-joined', myUser);
+      roomChannel.trigger('client-hello', myUser);
     });
 
     roomChannel.bind('pusher:subscription_error', (err) => {
@@ -84,54 +83,61 @@ const Session = () => {
       }
     });
 
-    // When another user joins
-    roomChannel.bind('client-user-joined', (newUser) => {
-      // Calculate new users list synchronously, deduplicate by username
-      const currentUsers = usersRef.current || [];
-      const newUsers = [...currentUsers.filter(u => u.username !== newUser.username), newUser];
-      
-      // Update ref and state immediately
-      usersRef.current = newUsers;
-      setUsers(newUsers);
-      
-      // We send them our state so they know the current video and our presence
-      const sendState = (playbackState) => {
-        try {
-          roomChannel.trigger('client-room-state', { users: newUsers, playbackState });
-        } catch (e) { console.error('Failed to send room state', e); }
-      };
+    const addOrUpdateUser = (newUser) => {
+      setUsers(prev => {
+        const list = prev || [];
+        const filtered = list.filter(u => u.username !== newUser.username);
+        return [...filtered, newUser];
+      });
+    };
 
-      try {
-        if (playerRef.current) {
-          const player = playerRef.current.getInternalPlayer();
-          if (player && typeof player.getPlayerState === 'function') {
-             player.getPlayerState().then(state => {
-               player.getCurrentTime().then(timestamp => {
-                 sendState({ videoId: videoIdRef.current, isPlaying: state === 1, timestamp });
-               }).catch(() => sendState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 }));
-             }).catch(() => sendState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 }));
-             return;
-          }
-        }
-      } catch (err) {
-        console.error('Error getting player state', err);
-      }
+    // When a new person says hello
+    roomChannel.bind('client-hello', (newUser) => {
+      addOrUpdateUser(newUser);
       
-      // Fallback if player isn't ready or threw an error
-      sendState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 });
+      // Say hi back
+      const myUser = { 
+        socketId: pusher.connection.socket_id, 
+        username: user.username, 
+        profileImage: user.profileImage 
+      };
+      roomChannel.trigger('client-im-here', myUser);
+      
+      // If we have a video playing, send them the video state
+      if (videoIdRef.current) {
+        const sendVideoState = (playbackState) => {
+          try {
+            roomChannel.trigger('client-room-state-video-only', playbackState);
+          } catch(e) {}
+        };
+        
+        try {
+          if (playerRef.current) {
+            const player = playerRef.current.getInternalPlayer();
+            if (player && typeof player.getPlayerState === 'function') {
+               player.getPlayerState().then(state => {
+                 player.getCurrentTime().then(timestamp => {
+                   sendVideoState({ videoId: videoIdRef.current, isPlaying: state === 1, timestamp });
+                 }).catch(() => sendVideoState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 }));
+               }).catch(() => sendVideoState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 }));
+               return;
+            }
+          }
+        } catch(e) {}
+        
+        sendVideoState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 });
+      }
     });
 
-    // When someone sends us the room state (we just joined)
-    roomChannel.bind('client-room-state', (state) => {
-      // Deduplicate the state.users by username just in case the sender had duplicates
-      const uniqueUsersMap = new Map();
-      state.users.forEach(u => uniqueUsersMap.set(u.username, u));
-      const uniqueUsers = Array.from(uniqueUsersMap.values());
-      
-      setUsers(uniqueUsers);
-      usersRef.current = uniqueUsers;
-      if (state.playbackState.videoId && !videoIdRef.current) {
-        setVideoId(state.playbackState.videoId);
+    // When someone responds to our hello
+    roomChannel.bind('client-im-here', (existingUser) => {
+      addOrUpdateUser(existingUser);
+    });
+
+    // When someone explicitly syncs video state
+    roomChannel.bind('client-room-state-video-only', (playbackState) => {
+      if (playbackState.videoId && !videoIdRef.current) {
+        setVideoId(playbackState.videoId);
       }
     });
 
