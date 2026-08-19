@@ -11,7 +11,7 @@ const Room = sequelize.define('Room', {
     allowNull: true // null means no password required
   },
   hostId: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
     allowNull: false
   }
 });
