@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import YouTube from 'react-youtube';
 import Pusher from 'pusher-js';
 import { motion } from 'framer-motion';
-import { Users, Copy, Music, LogOut, Search, Send, MessageCircle, Monitor } from 'lucide-react';
+import { Users, Copy, Music, LogOut, Search, Send, MessageCircle, Monitor, Settings, X, Check } from 'lucide-react';
 import axios from './api/axios';
 import Peer from 'peerjs';
 import { AuthContext } from './context/AuthContext';
@@ -45,6 +45,12 @@ const Session = () => {
   const [peerId, setPeerId] = useState('');
   const [remoteStream, setRemoteStream] = useState(null);
   const [isSharingScreen, setIsSharingScreen] = useState(false);
+  
+  const [showSettings, setShowSettings] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  
+  const [pendingKnocks, setPendingKnocks] = useState([]);
   
   const playerRef = useRef(null);
   const isSyncingRef = useRef(false);
@@ -251,14 +257,14 @@ const Session = () => {
 
       if (!playerRef.current) return;
       const player = playerRef.current.getInternalPlayer();
-      if (!player) return;
+      if (!player || typeof player.seekTo !== 'function') return;
 
       isSyncingRef.current = true;
 
       player.getCurrentTime().then(currentTime => {
         const timeDiff = Math.abs((currentTime || 0) - state.timestamp);
         if (timeDiff > 2) {
-          player.seekTo(state.timestamp);
+          player.seekTo(state.timestamp, true);
         }
 
         if (state.isPlaying) {
@@ -270,6 +276,15 @@ const Session = () => {
         setTimeout(() => {
           isSyncingRef.current = false;
         }, 500);
+      });
+    });
+
+    // Listen for knocks (Host only handles this, but everyone receives it on presence channel)
+    roomChannel.bind('guest-knock', (data) => {
+      setPendingKnocks(prev => {
+        // Prevent duplicate knocks
+        if (prev.find(k => k.userId === data.userId)) return prev;
+        return [...prev, data];
       });
     });
 
@@ -429,6 +444,31 @@ const Session = () => {
     alert('Room ID copied to clipboard!');
   };
   
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    setIsUpdatingPassword(true);
+    try {
+      await axios.put(`/room/${roomId}/password`, { password: newPassword || null });
+      alert('Password updated successfully!');
+      setShowSettings(false);
+      setNewPassword('');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to update password');
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const handleAllowKnock = async (targetUserId) => {
+    try {
+      await axios.post(`/room/${roomId}/allow`, { targetUserId });
+      setPendingKnocks(prev => prev.filter(k => k.userId !== targetUserId));
+    } catch (e) {
+      console.error('Failed to allow user', e);
+    }
+  };
+
   const renderProfileImage = (imgSrc) => {
     if (!imgSrc) return null;
     return imgSrc.startsWith('data:image') ? imgSrc : `${BACKEND_URL}${imgSrc}`;
@@ -450,9 +490,16 @@ const Session = () => {
             {isHost && <span style={{ background: 'var(--accent-blue)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>HOST</span>}
           </div>
           <div style={{ display: 'flex', gap: '1rem' }}>
-            <button type="button" className={`neo-button ${isSharingScreen ? 'red' : 'blue'}`} onClick={handleShareScreen} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', background: isSharingScreen ? '#ffcccc' : '' }} title={isSharingScreen ? "Stop Sharing" : "Share Screen"}>
-              <Monitor size={16} /> {isSharingScreen ? "Stop Sharing" : "Share Screen"}
-            </button>
+            {isHost && (
+              <>
+                <button type="button" className="neo-button" onClick={() => setShowSettings(true)} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--accent-green)', color: 'white' }}>
+                  <Settings size={16} /> Settings
+                </button>
+                <button type="button" className={`neo-button ${isSharingScreen ? 'red' : 'blue'}`} onClick={handleShareScreen} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', background: isSharingScreen ? '#ffcccc' : '' }} title={isSharingScreen ? "Stop Sharing" : "Share Screen"}>
+                  <Monitor size={16} /> {isSharingScreen ? "Stop Sharing" : "Share Screen"}
+                </button>
+              </>
+            )}
             <button className="neo-button" onClick={copyRoomId} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Copy size={16} /> Copy ID
             </button>
@@ -592,6 +639,77 @@ const Session = () => {
           <LogOut size={18} /> Leave Session
         </button>
       </div>
+
+      {/* Host Settings Modal */}
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <motion.div 
+              initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }}
+              className="neo-panel" 
+              style={{ width: '400px', maxWidth: '90%', padding: '2rem', background: 'var(--bg-color)' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Room Settings</h3>
+                <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <form onSubmit={handleUpdatePassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Change Room Password</label>
+                  <input 
+                    type="text" 
+                    className="neo-input" 
+                    placeholder="Leave blank to remove password" 
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+                <button type="submit" className="neo-button green" disabled={isUpdatingPassword} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <Check size={18} /> {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Pending Knocks Panel for Host */}
+      {isHost && pendingKnocks.length > 0 && (
+        <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 900, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {pendingKnocks.map(knock => (
+            <motion.div 
+              key={knock.userId}
+              initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 50, opacity: 0 }}
+              className="neo-panel"
+              style={{ padding: '1rem', background: 'var(--bg-color)', borderLeft: '4px solid var(--accent-yellow)', display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '250px' }}
+            >
+              <span style={{ fontWeight: 600 }}>{knock.username} wants to join</span>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button 
+                  className="neo-button green" 
+                  onClick={() => handleAllowKnock(knock.userId)}
+                  style={{ padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
+                >
+                  Allow
+                </button>
+                <button 
+                  className="neo-button red" 
+                  onClick={() => setPendingKnocks(prev => prev.filter(k => k.userId !== knock.userId))}
+                  style={{ padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
+                >
+                  Deny
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 };

@@ -77,6 +77,63 @@ app.post('/api/room/:roomId/verify', async (req, res) => {
   }
 });
 
+app.put('/api/room/:roomId/password', async (req, res) => {
+  try {
+    try {
+      await Room.sync({ alter: true });
+    } catch (e) {
+      await Room.sync({ force: true });
+    }
+    
+    const { password } = req.body;
+    const room = await Room.findByPk(req.params.roomId);
+    
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
+    room.password = hashedPassword;
+    await room.save();
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update room password error', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/room/:roomId/knock', async (req, res) => {
+  try {
+    const { userId, username } = req.body;
+    const { roomId } = req.params;
+    
+    await pusher.trigger(`presence-room-${roomId}`, 'guest-knock', {
+      userId,
+      username
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Knock error', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/room/:roomId/allow', async (req, res) => {
+  try {
+    const { targetUserId } = req.body;
+    const { roomId } = req.params;
+    
+    await pusher.trigger(`knock-${roomId}-${targetUserId}`, 'knock-allowed', {});
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Allow knock error', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 app.get('/api/room/:roomId', async (req, res) => {
   try {
     try {
