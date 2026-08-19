@@ -95,24 +95,30 @@ const Session = () => {
       setUsers(newUsers);
       
       // We send them our state so they know the current video and our presence
-      if (playerRef.current) {
-        const player = playerRef.current.getInternalPlayer();
-        if (player && player.getPlayerState) {
-           player.getPlayerState().then(state => {
-             player.getCurrentTime().then(timestamp => {
-               roomChannel.trigger('client-room-state', {
-                 users: newUsers,
-                 playbackState: { videoId: videoIdRef.current, isPlaying: state === 1, timestamp }
-               });
-             });
-           });
+      const sendState = (playbackState) => {
+        try {
+          roomChannel.trigger('client-room-state', { users: newUsers, playbackState });
+        } catch (e) { console.error('Failed to send room state', e); }
+      };
+
+      try {
+        if (playerRef.current) {
+          const player = playerRef.current.getInternalPlayer();
+          if (player && typeof player.getPlayerState === 'function') {
+             player.getPlayerState().then(state => {
+               player.getCurrentTime().then(timestamp => {
+                 sendState({ videoId: videoIdRef.current, isPlaying: state === 1, timestamp });
+               }).catch(() => sendState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 }));
+             }).catch(() => sendState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 }));
+             return;
+          }
         }
-      } else {
-        roomChannel.trigger('client-room-state', {
-          users: newUsers,
-          playbackState: { videoId: videoIdRef.current, isPlaying: false, timestamp: 0 }
-        });
+      } catch (err) {
+        console.error('Error getting player state', err);
       }
+      
+      // Fallback if player isn't ready or threw an error
+      sendState({ videoId: videoIdRef.current, isPlaying: false, timestamp: 0 });
     });
 
     // When someone sends us the room state (we just joined)
