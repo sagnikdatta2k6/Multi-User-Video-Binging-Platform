@@ -551,9 +551,6 @@ const Session = () => {
             <button className="neo-button" onClick={copyRoomId} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Copy size={16} /> Copy ID
             </button>
-            <button className="neo-button" onClick={() => setIsTheatreMode(!isTheatreMode)} style={{ padding: '8px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isTheatreMode ? "Exit Theatre Mode" : "Theatre Mode"}>
-              {isTheatreMode ? <Minimize size={18} /> : <Maximize size={18} />}
-            </button>
           </div>
         </div>
 
@@ -573,17 +570,25 @@ const Session = () => {
           </form>
         )}
 
-        {/* Screen Share Container */}
-        {remoteStream && (
-          <div className="neo-panel" style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#000', marginBottom: '1rem', border: '4px solid var(--accent-blue)' }}>
-            <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '4px 8px', borderRadius: '4px', zIndex: 10, fontSize: '0.8rem', fontWeight: 'bold' }}>Live Screen Share</div>
-            <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-          </div>
-        )}
-
-        {/* Player Container */}
-        <div className="neo-panel" style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#000' }}>
-          {videoId ? (
+        {/* Media Container (Screenshare OR Video OR URL) */}
+        <div className="neo-panel" style={{ 
+          width: '100%', 
+          aspectRatio: '16/9', 
+          overflow: 'hidden', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          position: 'relative', 
+          background: '#000',
+          border: remoteStream ? '4px solid var(--accent-blue)' : 'var(--border-width) solid var(--border-color)' 
+        }}>
+          
+          {remoteStream ? (
+            <>
+              <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '4px 8px', borderRadius: '4px', zIndex: 10, fontSize: '0.8rem', fontWeight: 'bold' }}>Live Screen Share</div>
+              <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </>
+          ) : videoId ? (
              <YouTube
               videoId={videoId}
               ref={playerRef}
@@ -608,6 +613,29 @@ const Session = () => {
               <p style={{ fontWeight: 600 }}>Queue a song to start listening</p>
             </div>
           )}
+          
+          {/* Overlay Theatre Mode Button for easy access */}
+          <button 
+            onClick={() => setIsTheatreMode(!isTheatreMode)}
+            style={{
+              position: 'absolute',
+              bottom: '10px',
+              right: '10px',
+              background: 'rgba(0,0,0,0.6)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 20
+            }}
+            title={isTheatreMode ? "Exit Theatre Mode" : "Theatre Mode"}
+          >
+            {isTheatreMode ? <Minimize size={18} /> : <Maximize size={18} />}
+          </button>
         </div>
       </div>
 
