@@ -64,6 +64,12 @@ const Session = () => {
   const myScreenStreamRef = useRef(null);
   const remoteVideoRef = useRef(null);
   
+  useEffect(() => {
+    if (remoteStream && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
+  
   const usersRef = useRef([]);
 
   useEffect(() => {
@@ -131,9 +137,6 @@ const Session = () => {
       
       call.on('stream', stream => {
         setRemoteStream(stream);
-        setTimeout(() => {
-          if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
-        }, 100);
       });
     });
 
@@ -359,7 +362,11 @@ const Session = () => {
         } else if (url.pathname.includes('/shorts/')) {
           extractedId = url.pathname.split('/shorts/')[1].split('?')[0];
         } else {
-          extractedId = url.searchParams.get('v') || extractedId;
+          extractedId = url.searchParams.get('v');
+          if (!extractedId) {
+            alert('Please paste a specific YouTube video or Shorts link. YouTube does not allow embedding its main homepage.');
+            return;
+          }
         }
       } else if (!searchInput.startsWith('http://') && !searchInput.startsWith('https://')) {
         // Assume it's a direct YouTube ID if it's not a URL
@@ -418,10 +425,6 @@ const Session = () => {
       setIsSharingScreen(true);
       isSharingScreenRef.current = true;
       setRemoteStream(stream);
-      
-      setTimeout(() => {
-        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
-      }, 100);
       
       stream.getVideoTracks()[0].onended = () => {
         setIsSharingScreen(false);
