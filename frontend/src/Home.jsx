@@ -8,6 +8,7 @@ import axios from './api/axios';
 const Home = () => {
   const [roomId, setRoomId] = useState('');
   const [createPassword, setCreatePassword] = useState('');
+  const [createRoomName, setCreateRoomName] = useState('');
   
   // Join Modal States
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -29,6 +30,7 @@ const Home = () => {
     try {
       await axios.post('/room', {
         roomId: newRoomId,
+        roomName: createRoomName || 'Unnamed Room',
         password: createPassword || null,
         hostId: user.id
       });
@@ -156,6 +158,13 @@ const Home = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'left' }}>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <input 
+              type="text" 
+              className="neo-input" 
+              placeholder="Room Name (Optional)" 
+              value={createRoomName}
+              onChange={(e) => setCreateRoomName(e.target.value)}
+            />
             <input 
               type="text" 
               className="neo-input" 

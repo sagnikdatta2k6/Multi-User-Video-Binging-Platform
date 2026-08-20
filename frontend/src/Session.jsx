@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import YouTube from 'react-youtube';
 import Pusher from 'pusher-js';
 import { motion } from 'framer-motion';
-import { Users, Copy, Music, LogOut, Search, Send, MessageCircle, Monitor, Settings, X, Check } from 'lucide-react';
+import { Users, Copy, Music, LogOut, Search, Send, MessageCircle, Monitor, Settings, X, Check, Maximize, Minimize } from 'lucide-react';
 import axios from './api/axios';
 import Peer from 'peerjs';
 import { AuthContext } from './context/AuthContext';
@@ -18,7 +18,9 @@ const Session = () => {
   const [channel, setChannel] = useState(null);
   const [users, setUsers] = useState([]);
   const [isHost, setIsHost] = useState(false);
+  const [roomName, setRoomName] = useState('');
   const [isLoadingRoom, setIsLoadingRoom] = useState(true);
+  const [isTheatreMode, setIsTheatreMode] = useState(false);
   
   const [videoIdState, setVideoIdState] = useState('');
   const [iframeUrl, setIframeUrl] = useState('');
@@ -69,6 +71,7 @@ const Session = () => {
     const checkRoom = async () => {
       try {
         const res = await axios.get(`/room/${roomId}`);
+        setRoomName(res.data.roomName || 'Unnamed Room');
         if (res.data.hostId === user.id) {
           setIsHost(true);
         }
@@ -477,16 +480,18 @@ const Session = () => {
   return (
     <motion.div 
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      style={{ display: 'flex', minHeight: '100vh', padding: '2rem', gap: '2rem', maxWidth: '1600px', margin: '0 auto' }}
+      style={{ display: 'flex', minHeight: '100vh', padding: isTheatreMode ? '1rem' : '2rem', gap: '2rem', maxWidth: isTheatreMode ? '100%' : '1600px', margin: '0 auto' }}
     >
       {/* Left Column: Player & Queue */}
-      <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div style={{ flex: isTheatreMode ? 1 : 2, display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
         
         {/* Header */}
         <div className="neo-panel" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <Music size={28} color="var(--accent-pink)" />
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Room <span style={{ color: 'var(--accent-pink)' }}>#{roomId}</span></h2>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>
+              {roomName} <span style={{ color: 'var(--accent-pink)', fontSize: '1rem', marginLeft: '0.5rem' }}>#{roomId}</span>
+            </h2>
             {isHost && <span style={{ background: 'var(--accent-blue)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>HOST</span>}
           </div>
           <div style={{ display: 'flex', gap: '1rem' }}>
@@ -502,6 +507,9 @@ const Session = () => {
             )}
             <button className="neo-button" onClick={copyRoomId} style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Copy size={16} /> Copy ID
+            </button>
+            <button className="neo-button" onClick={() => setIsTheatreMode(!isTheatreMode)} style={{ padding: '8px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isTheatreMode ? "Exit Theatre Mode" : "Theatre Mode"}>
+              {isTheatreMode ? <Minimize size={18} /> : <Maximize size={18} />}
             </button>
           </div>
         </div>
@@ -561,7 +569,7 @@ const Session = () => {
       </div>
 
       {/* Right Column: Chat & Users */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', minWidth: '350px' }}>
+      <div style={{ display: isTheatreMode ? 'none' : 'flex', flex: 1, flexDirection: 'column', gap: '1.5rem', minWidth: '350px' }}>
         
         {/* User List */}
         <div className="neo-panel" style={{ padding: '1.5rem', maxHeight: '250px', overflowY: 'auto' }}>

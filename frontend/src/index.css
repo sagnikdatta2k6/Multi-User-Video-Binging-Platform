@@ -12,8 +12,20 @@
   
   --border-width: 3px;
   --border-color: #2c2c2c;
-  --shadow-color: rgba(44, 44, 44, 0.4);
   --shadow-offset: 4px;
+}
+
+[data-theme='dark'] {
+  --bg-color: #121212;
+  --text-color: #f0f4f8;
+  
+  --accent-pink: #d15a99;
+  --accent-yellow: #d1b538;
+  --accent-blue: #4a86e8;
+  --accent-green: #38b062;
+  
+  --border-color: #444444;
+  --shadow-color: rgba(0, 0, 0, 0.8);
 }
 
 * {
@@ -30,11 +42,16 @@ body {
   /* Soft dotted background */
   background-image: radial-gradient(#d1d9e6 2px, transparent 2px);
   background-size: 32px 32px;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+[data-theme='dark'] body {
+  background-image: radial-gradient(#333333 2px, transparent 2px);
 }
 
 /* Soft Neobrutal Utilities */
 .neo-panel {
-  background: white;
+  background: var(--bg-color);
   border: var(--border-width) solid var(--border-color);
   border-radius: 20px; /* Softer corners */
   box-shadow: var(--shadow-offset) var(--shadow-offset) 12px var(--shadow-color); /* Blurry, soft shadow */
@@ -70,7 +87,7 @@ body {
 .neo-button.green { background: var(--accent-green); }
 
 .neo-input {
-  background: white;
+  background: var(--bg-color);
   border: var(--border-width) solid var(--border-color);
   border-radius: 16px;
   padding: 12px 16px;
@@ -80,7 +97,7 @@ body {
   font-size: 1rem;
   width: 100%;
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.3s ease;
 }
 
 .neo-input:focus {
@@ -92,7 +109,7 @@ body {
   font-size: 3rem;
   font-weight: 700;
   line-height: 1.2;
-  text-shadow: 2px 2px 0px white, 4px 4px 0px var(--accent-yellow);
+  text-shadow: 2px 2px 0px var(--bg-color), 4px 4px 0px var(--accent-yellow);
 }
 
 .neo-label {

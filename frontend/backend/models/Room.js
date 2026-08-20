@@ -6,6 +6,10 @@ const Room = sequelize.define('Room', {
     type: DataTypes.STRING,
     primaryKey: true
   },
+  roomName: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   password: {
     type: DataTypes.STRING,
     allowNull: true // null means no password required

@@ -8,8 +8,9 @@ const Room = require('./models/Room');
 const bcrypt = require('bcryptjs');
 
 // Define relationships
-User.hasMany(Room, { foreignKey: 'hostId' });
-Room.belongsTo(User, { foreignKey: 'hostId' });
+// Removed User-Room foreign key constraint to fix database schema mismatches on Vercel
+// User.hasMany(Room, { foreignKey: 'hostId' });
+// Room.belongsTo(User, { foreignKey: 'hostId' });
 
 const app = express();
 app.use(cors());
@@ -31,11 +32,12 @@ app.post('/api/room', async (req, res) => {
     } catch (e) {
       await Room.sync({ force: true }); // Recreate if type casting fails
     }
-    const { roomId, password, hostId } = req.body;
+    const { roomId, roomName, password, hostId } = req.body;
     const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
     
     await Room.create({
       roomId,
+      roomName: roomName || 'Unnamed Room',
       password: hashedPassword,
       hostId
     });
@@ -142,7 +144,7 @@ app.get('/api/room/:roomId', async (req, res) => {
       await Room.sync({ force: true }); // Recreate if type casting fails
     }
     const room = await Room.findByPk(req.params.roomId, {
-      attributes: ['roomId', 'hostId', 'password']
+      attributes: ['roomId', 'roomName', 'hostId', 'password']
     });
     
     if (!room) {
@@ -151,6 +153,7 @@ app.get('/api/room/:roomId', async (req, res) => {
     
     res.json({
       roomId: room.roomId,
+      roomName: room.roomName,
       hostId: room.hostId,
       hasPassword: !!room.password
     });
