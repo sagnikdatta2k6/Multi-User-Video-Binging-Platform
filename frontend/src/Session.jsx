@@ -126,6 +126,15 @@ const Session = () => {
 
     peer.on('open', id => {
       setPeerId(id);
+      
+      // Request screen share just in case someone is already sharing
+      if (!isHostRef.current) {
+        axios.post('/pusher/trigger', {
+          channel: roomChannelName,
+          event: 'server-request-screen-share',
+          data: { guestPeerId: id }
+        }).catch(err => console.error('Peer ready trigger failed', err));
+      }
     });
 
     peer.on('call', call => {
@@ -238,7 +247,10 @@ const Session = () => {
 
     // Chat message received
     roomChannel.bind('server-new-message', (message) => {
-      setMessages((prev) => [...prev, message]);
+      setMessages((prev) => {
+        if (prev.find(m => m.id === message.id)) return prev;
+        return [...prev, message];
+      });
     });
     
     // Screen share started by Host
