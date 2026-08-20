@@ -385,6 +385,7 @@ const Session = () => {
         }
         setIsSharingScreen(false);
         myScreenStreamRef.current = null;
+        setRemoteStream(null);
         axios.post('/pusher/trigger', {
           channel: `presence-room-${roomId}`,
           event: 'server-screen-share-stopped',
@@ -396,10 +397,16 @@ const Session = () => {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       myScreenStreamRef.current = stream;
       setIsSharingScreen(true);
+      setRemoteStream(stream);
+
+      setTimeout(() => {
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
+      }, 100);
       
       stream.getVideoTracks()[0].onended = () => {
         setIsSharingScreen(false);
         myScreenStreamRef.current = null;
+        setRemoteStream(null);
         axios.post('/pusher/trigger', {
           channel: `presence-room-${roomId}`,
           event: 'server-screen-share-stopped',
