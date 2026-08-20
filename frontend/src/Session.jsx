@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import YouTube from 'react-youtube';
 import Pusher from 'pusher-js';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Copy, Music, LogOut, Search, Send, MessageCircle, Monitor, Settings, X, Check, Maximize, Minimize } from 'lucide-react';
 import axios from './api/axios';
 import Peer from 'peerjs';
