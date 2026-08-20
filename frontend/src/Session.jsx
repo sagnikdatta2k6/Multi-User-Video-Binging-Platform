@@ -22,6 +22,7 @@ const Session = () => {
   const [roomName, setRoomName] = useState('');
   const [isLoadingRoom, setIsLoadingRoom] = useState(true);
   const [isTheatreMode, setIsTheatreMode] = useState(false);
+  const [showFloatingChat, setShowFloatingChat] = useState(false);
   
   const [videoIdState, setVideoIdState] = useState('');
   const [iframeUrl, setIframeUrl] = useState('');
@@ -251,6 +252,14 @@ const Session = () => {
         if (prev.find(m => m.id === message.id)) return prev;
         return [...prev, message];
       });
+    });
+    
+    // Kick user received
+    roomChannel.bind('server-kick-user', (data) => {
+      if (data.targetSocketId === pusher.connection.socket_id || data.targetUsername === user.username) {
+        alert("You have been removed from the room by the host.");
+        navigate('/', { replace: true });
+      }
     });
     
     // Screen share started by Host
@@ -515,6 +524,15 @@ const Session = () => {
     }
   };
 
+  const handleKickUser = (targetSocketId, targetUsername) => {
+    if (!window.confirm(`Are you sure you want to kick ${targetUsername}?`)) return;
+    axios.post('/pusher/trigger', {
+      channel: `presence-room-${roomId}`,
+      event: 'server-kick-user',
+      data: { targetSocketId, targetUsername }
+    }).catch(console.error);
+  };
+
   const renderProfileImage = (imgSrc) => {
     if (!imgSrc) return null;
     return imgSrc.startsWith('data:image') ? imgSrc : `${BACKEND_URL}${imgSrc}`;
@@ -626,31 +644,130 @@ const Session = () => {
           )}
           
           {/* Overlay Theatre Mode Button for easy access */}
-          <button 
-            onClick={() => setIsTheatreMode(!isTheatreMode)}
-            style={{
-              position: 'absolute',
-              bottom: '10px',
-              right: '10px',
-              background: 'rgba(0,0,0,0.6)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 20
-            }}
-            title={isTheatreMode ? "Exit Theatre Mode" : "Theatre Mode"}
-          >
-            {isTheatreMode ? <Minimize size={18} /> : <Maximize size={18} />}
-          </button>
+          <div style={{
+            position: 'absolute',
+            bottom: '10px',
+            right: '10px',
+            display: 'flex',
+            gap: '10px',
+            zIndex: 20
+          }}>
+            {isTheatreMode && (
+              <button 
+                onClick={() => setShowFloatingChat(!showFloatingChat)}
+                style={{
+                  background: showFloatingChat ? 'var(--accent-blue)' : 'rgba(0,0,0,0.6)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: showFloatingChat ? '0 0 10px rgba(0,0,0,0.5)' : 'none'
+                }}
+                title={showFloatingChat ? "Hide Chat" : "Show Chat"}
+              >
+                <MessageCircle size={18} />
+              </button>
+            )}
+            <button 
+              onClick={() => {
+                setIsTheatreMode(!isTheatreMode);
+                if (isTheatreMode) setShowFloatingChat(false);
+              }}
+              style={{
+                background: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title={isTheatreMode ? "Exit Theatre Mode" : "Theatre Mode"}
+            >
+              {isTheatreMode ? <Minimize size={18} /> : <Maximize size={18} />}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Right Column: Chat & Users */}
+      {/* Floating Chat Overlay (Theatre Mode Only) */}
+      <AnimatePresence>
+        {isTheatreMode && showFloatingChat && (
+          <motion.div 
+            initial={{ x: 300, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 300, opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: '20px',
+              right: '20px',
+              bottom: '20px',
+              width: '350px',
+              background: 'rgba(var(--bg-color-rgb, 18,18,18), 0.8)',
+              backdropFilter: 'blur(10px)',
+              zIndex: 10000,
+              borderRadius: '16px',
+              border: '2px solid var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+            }}
+          >
+            <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}>
+                <MessageCircle size={20} /> Live Chat
+              </div>
+              <button onClick={() => setShowFloatingChat(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-color)' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {messages.length === 0 ? (
+                <p style={{ textAlign: 'center', color: '#888', marginTop: '2rem' }}>No messages yet.</p>
+              ) : (
+                messages.map(msg => (
+                  <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {msg.profileImage ? (
+                        <img src={renderProfileImage(msg.profileImage)} alt="Profile" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--bg-color)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
+                          {msg.username?.charAt(0).toUpperCase() || '?'}
+                        </div>
+                      )}
+                      <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>{msg.username}</span>
+                    </div>
+                    <div style={{ background: msg.username === user?.username ? 'var(--accent-blue)' : 'rgba(255,255,255,0.1)', color: msg.username === user?.username ? 'white' : 'var(--text-color)', borderRadius: '12px', padding: '8px 12px', fontSize: '0.9rem', alignSelf: 'flex-start', maxWidth: '90%' }}>
+                      {msg.text}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handleSendMessage} style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '0.5rem' }}>
+              <input 
+                type="text" 
+                className="neo-input" 
+                placeholder="Type..." 
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                style={{ flex: 1, background: 'rgba(0,0,0,0.2)' }}
+              />
+              <button type="submit" className="neo-button green" style={{ padding: '0 12px' }}>
+                <Send size={16} />
+              </button>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Right Column: Chat & Users (Hidden in Theatre Mode) */}
       <div style={{ display: isTheatreMode ? 'none' : 'flex', flex: 1, flexDirection: 'column', gap: '1.5rem', minWidth: '350px' }}>
         
         {/* User List */}
@@ -668,7 +785,18 @@ const Session = () => {
                     {u.username?.charAt(0).toUpperCase() || '?'}
                   </div>
                 )}
-                <span style={{ fontWeight: 600 }}>{u.username} {u.username === user?.username ? '(You)' : ''}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  <span style={{ fontWeight: 600 }}>{u.username} {u.username === user?.username ? '(You)' : ''}</span>
+                </div>
+                {isHost && u.username !== user?.username && (
+                  <button 
+                    onClick={() => handleKickUser(u.socketId, u.username)}
+                    style={{ background: '#ffcccc', color: '#cc0000', border: '1px solid #cc0000', borderRadius: '4px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}
+                    title={`Kick ${u.username}`}
+                  >
+                    Kick
+                  </button>
+                )}
               </div>
             ))}
           </div>

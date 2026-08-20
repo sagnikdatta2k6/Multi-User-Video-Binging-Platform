@@ -46,7 +46,9 @@ body {
 }
 
 [data-theme='dark'] body {
-  background-image: radial-gradient(#333333 2px, transparent 2px);
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(209, 90, 153, 0.15) 0%, transparent 60%),
+    radial-gradient(#333333 2px, transparent 2px);
 }
 
 /* Soft Neobrutal Utilities */

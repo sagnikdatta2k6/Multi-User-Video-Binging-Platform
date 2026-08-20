@@ -74,7 +74,7 @@ function App() {
           position: 'fixed', 
           bottom: '2rem', 
           left: '2rem', 
-          zIndex: 9999, 
+          zIndex: 999, 
           padding: '12px', 
           borderRadius: '50%', 
           display: 'flex', 

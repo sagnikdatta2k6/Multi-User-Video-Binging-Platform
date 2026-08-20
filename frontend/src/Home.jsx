@@ -119,8 +119,8 @@ const Home = () => {
         padding: '2rem'
       }}
     >
-      <div style={{ position: 'absolute', top: '2rem', right: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <span style={{ fontWeight: 600 }}>Hey, {user?.username}!</span>
+      <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '300px', zIndex: 10 }}>
+        <span style={{ fontWeight: 600, maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Hey, {user?.username}!</span>
         {user?.profileImage ? (
           <img src={user.profileImage.startsWith('data:image') ? user.profileImage : `${import.meta.env.PROD ? '' : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001')}${user.profileImage}`} alt="Profile" style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--border-color)' }} />
         ) : (
