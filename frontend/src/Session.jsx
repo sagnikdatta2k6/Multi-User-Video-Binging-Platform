@@ -201,12 +201,21 @@ const Session = () => {
                    sendVideoState({ videoId: videoIdRef.current, iframeUrl: '', isPlaying: state === 1, timestamp });
                  }).catch(() => sendVideoState({ videoId: videoIdRef.current, iframeUrl: '', isPlaying: false, timestamp: 0 }));
                }).catch(() => sendVideoState({ videoId: videoIdRef.current, iframeUrl: '', isPlaying: false, timestamp: 0 }));
-               return;
+            } else {
+              sendVideoState({ videoId: videoIdRef.current, iframeUrl: '', isPlaying: false, timestamp: 0 });
             }
+          } else {
+            sendVideoState({ videoId: videoIdRef.current, iframeUrl, isPlaying: false, timestamp: 0 });
           }
         } catch(e) {}
-        
-        sendVideoState({ videoId: videoIdRef.current, iframeUrl, isPlaying: false, timestamp: 0 });
+      }
+      
+      if (isHost && isSharingScreen) {
+        axios.post('/pusher/trigger', {
+          channel: `presence-room-${roomId}`,
+          event: 'server-screen-share-started',
+          data: {}
+        }).catch(console.error);
       }
     });
 
@@ -226,18 +235,23 @@ const Session = () => {
       setMessages((prev) => [...prev, message]);
     });
     
-    // Screen share started by someone else
-    roomChannel.bind('server-screen-share-started', (data) => {
-      if (data.peerId && peerRef.current) {
-        const call = peerRef.current.call(data.peerId);
-        if (call) {
-          call.on('stream', stream => {
-            setRemoteStream(stream);
-            setTimeout(() => {
-              if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
-            }, 100);
-          });
-        }
+    // Screen share started by Host
+    roomChannel.bind('server-screen-share-started', () => {
+      // I am a guest, I want the screen share
+      if (!isHost && peerId) {
+        axios.post('/pusher/trigger', {
+          channel: `presence-room-${roomId}`,
+          event: 'server-request-screen-share',
+          data: { guestPeerId: peerId }
+        }).catch(console.error);
+      }
+    });
+
+    // A guest is requesting the screen share
+    roomChannel.bind('server-request-screen-share', (data) => {
+      // I am the Host and I am sharing
+      if (isHost && isSharingScreen && myScreenStreamRef.current && data.guestPeerId) {
+        peerRef.current.call(data.guestPeerId, myScreenStreamRef.current);
       }
     });
 
@@ -417,7 +431,7 @@ const Session = () => {
       axios.post('/pusher/trigger', {
         channel: `presence-room-${roomId}`,
         event: 'server-screen-share-started',
-        data: { peerId }
+        data: {}
       }).catch(console.error);
     } catch (e) {
       console.error('Screen share failed', e);
