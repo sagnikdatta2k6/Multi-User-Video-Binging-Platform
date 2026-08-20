@@ -18,6 +18,7 @@ const Session = () => {
   const [channel, setChannel] = useState(null);
   const [users, setUsers] = useState([]);
   const [isHost, setIsHost] = useState(false);
+  const isHostRef = useRef(false);
   const [roomName, setRoomName] = useState('');
   const [isLoadingRoom, setIsLoadingRoom] = useState(true);
   const [isTheatreMode, setIsTheatreMode] = useState(false);
@@ -47,6 +48,7 @@ const Session = () => {
   const [peerId, setPeerId] = useState('');
   const [remoteStream, setRemoteStream] = useState(null);
   const [isSharingScreen, setIsSharingScreen] = useState(false);
+  const isSharingScreenRef = useRef(false);
   
   const [showSettings, setShowSettings] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -74,6 +76,7 @@ const Session = () => {
         setRoomName(res.data.roomName || 'Unnamed Room');
         if (res.data.hostId === user.id) {
           setIsHost(true);
+          isHostRef.current = true;
         }
       } catch (err) {
         console.error('Failed to fetch room details', err);
@@ -210,7 +213,7 @@ const Session = () => {
         } catch(e) {}
       }
       
-      if (isHost && isSharingScreen) {
+      if (isHostRef.current && isSharingScreenRef.current) {
         axios.post('/pusher/trigger', {
           channel: `presence-room-${roomId}`,
           event: 'server-screen-share-started',
@@ -238,11 +241,12 @@ const Session = () => {
     // Screen share started by Host
     roomChannel.bind('server-screen-share-started', () => {
       // I am a guest, I want the screen share
-      if (!isHost && peerId) {
+      const currentPeerId = peerRef.current?.id;
+      if (!isHostRef.current && currentPeerId) {
         axios.post('/pusher/trigger', {
           channel: `presence-room-${roomId}`,
           event: 'server-request-screen-share',
-          data: { guestPeerId: peerId }
+          data: { guestPeerId: currentPeerId }
         }).catch(console.error);
       }
     });
@@ -250,7 +254,7 @@ const Session = () => {
     // A guest is requesting the screen share
     roomChannel.bind('server-request-screen-share', (data) => {
       // I am the Host and I am sharing
-      if (isHost && isSharingScreen && myScreenStreamRef.current && data.guestPeerId) {
+      if (isHostRef.current && isSharingScreenRef.current && myScreenStreamRef.current && data.guestPeerId) {
         peerRef.current.call(data.guestPeerId, myScreenStreamRef.current);
       }
     });
@@ -394,12 +398,13 @@ const Session = () => {
     try {
       if (isSharingScreen) {
         // Stop sharing
-        if (myScreenStreamRef.current) {
-          myScreenStreamRef.current.getTracks().forEach(t => t.stop());
-        }
-        setIsSharingScreen(false);
-        myScreenStreamRef.current = null;
-        setRemoteStream(null);
+          if (myScreenStreamRef.current) {
+            myScreenStreamRef.current.getTracks().forEach(t => t.stop());
+          }
+          setIsSharingScreen(false);
+          isSharingScreenRef.current = false;
+          myScreenStreamRef.current = null;
+          setRemoteStream(null);
         axios.post('/pusher/trigger', {
           channel: `presence-room-${roomId}`,
           event: 'server-screen-share-stopped',
@@ -411,14 +416,16 @@ const Session = () => {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       myScreenStreamRef.current = stream;
       setIsSharingScreen(true);
+      isSharingScreenRef.current = true;
       setRemoteStream(stream);
-
+      
       setTimeout(() => {
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
       }, 100);
       
       stream.getVideoTracks()[0].onended = () => {
         setIsSharingScreen(false);
+        isSharingScreenRef.current = false;
         myScreenStreamRef.current = null;
         setRemoteStream(null);
         axios.post('/pusher/trigger', {
