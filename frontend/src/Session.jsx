@@ -571,7 +571,18 @@ const Session = () => {
         )}
 
         {/* Media Container (Screenshare OR Video OR URL) */}
-        <div className="neo-panel" style={{ 
+        <div className={isTheatreMode ? "" : "neo-panel"} style={isTheatreMode ? {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#000'
+        } : { 
           width: '100%', 
           aspectRatio: '16/9', 
           overflow: 'hidden', 
